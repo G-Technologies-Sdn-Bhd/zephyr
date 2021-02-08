@@ -24,7 +24,7 @@ LOG_MODULE_REGISTER(net_tcp, CONFIG_NET_TCP_LOG_LEVEL);
 #include "connection.h"
 #include "net_stats.h"
 #include "net_private.h"
-#include "tcp_internal.h"
+#include "tcp2_priv.h"
 
 #define ACK_TIMEOUT_MS CONFIG_NET_TCP_ACK_TIMEOUT
 #define ACK_TIMEOUT K_MSEC(ACK_TIMEOUT_MS)
@@ -49,6 +49,7 @@ static void tcp_in(struct tcp *conn, struct net_pkt *pkt);
 
 int (*tcp_send_cb)(struct net_pkt *pkt) = NULL;
 size_t (*tcp_recv_cb)(struct tcp *conn, struct net_pkt *pkt) = NULL;
+uint16_t net_tcp_get_recv_mss(const struct tcp *conn);
 
 static uint32_t tcp_get_seq(struct net_buf *buf)
 {
@@ -231,9 +232,7 @@ static const char *tcp_flags(uint8_t flags)
 			len += snprintk(buf + len, BUF_SIZE - len, "URG,");
 		}
 
-		if (len > 0) {
-			buf[len - 1] = '\0'; /* delete the last comma */
-		}
+		buf[len - 1] = '\0'; /* delete the last comma */
 	}
 #undef BUF_SIZE
 	return buf;
@@ -379,14 +378,14 @@ static int tcp_conn_unref(struct tcp *conn)
 	}
 #endif /* CONFIG_NET_TEST_PROTOCOL */
 
+	k_mutex_lock(&tcp_lock, K_FOREVER);
+
 	ref_count = atomic_dec(&conn->ref_count) - 1;
-	if (ref_count != 0) {
+	if (ref_count) {
 		tp_out(net_context_get_family(conn->context), conn->iface,
 		       "TP_TRACE", "event", "CONN_DELETE");
-		return ref_count;
+		goto unlock;
 	}
-
-	k_mutex_lock(&tcp_lock, K_FOREVER);
 
 	/* If there is any pending data, pass that to application */
 	while ((pkt = k_fifo_get(&conn->recv_data, K_NO_WAIT)) != NULL) {
@@ -431,6 +430,7 @@ static int tcp_conn_unref(struct tcp *conn)
 
 	k_mem_slab_free(&tcp_conns_slab, (void **)&conn);
 
+unlock:
 	k_mutex_unlock(&tcp_lock);
 out:
 	return ref_count;
@@ -621,9 +621,9 @@ static bool tcp_options_check(struct tcp_options *recv_options,
 	for ( ; options && len >= 1; options += opt_len, len -= opt_len) {
 		opt = options[0];
 
-		if (opt == NET_TCP_END_OPT) {
+		if (opt == TCPOPT_END) {
 			break;
-		} else if (opt == NET_TCP_NOP_OPT) {
+		} else if (opt == TCPOPT_NOP) {
 			opt_len = 1;
 			continue;
 		} else {
@@ -643,7 +643,7 @@ static bool tcp_options_check(struct tcp_options *recv_options,
 		}
 
 		switch (opt) {
-		case NET_TCP_MSS_OPT:
+		case TCPOPT_MAXSEG:
 			if (opt_len != 4) {
 				result = false;
 				goto end;
@@ -654,7 +654,7 @@ static bool tcp_options_check(struct tcp_options *recv_options,
 			recv_options->mss_found = true;
 			NET_DBG("MSS=%hu", recv_options->mss);
 			break;
-		case NET_TCP_WINDOW_SCALE_OPT:
+		case TCPOPT_WINDOW:
 			if (opt_len != 3) {
 				result = false;
 				goto end;
@@ -828,25 +828,6 @@ static int net_tcp_set_mss_opt(struct tcp *conn, struct net_pkt *pkt)
 	return net_pkt_set_data(pkt, &mss_option);
 }
 
-static bool is_destination_local(struct net_pkt *pkt)
-{
-	if (IS_ENABLED(CONFIG_NET_IPV4) && net_pkt_family(pkt) == AF_INET) {
-		if (net_ipv4_is_addr_loopback(&NET_IPV4_HDR(pkt)->dst) ||
-		    net_ipv4_is_my_addr(&NET_IPV4_HDR(pkt)->dst)) {
-			return true;
-		}
-	}
-
-	if (IS_ENABLED(CONFIG_NET_IPV6) && net_pkt_family(pkt) == AF_INET6) {
-		if (net_ipv6_is_addr_loopback(&NET_IPV6_HDR(pkt)->dst) ||
-		    net_ipv6_is_my_addr(&NET_IPV6_HDR(pkt)->dst)) {
-			return true;
-		}
-	}
-
-	return false;
-}
-
 static int tcp_out_ext(struct tcp *conn, uint8_t flags, struct net_pkt *data,
 		       uint32_t seq)
 {
@@ -905,14 +886,7 @@ static int tcp_out_ext(struct tcp *conn, uint8_t flags, struct net_pkt *data,
 
 	sys_slist_append(&conn->send_queue, &pkt->next);
 
-	if (is_destination_local(pkt)) {
-		/* If the destination is local, we have to let the current
-		 * thread to finish with any state-machine changes before
-		 * sending the packet, or it might lead to state unconsistencies
-		 */
-		k_work_schedule_for_queue(&tcp_work_q,
-					  &conn->send_timer, K_NO_WAIT);
-	} else if (tcp_send_process_no_lock(conn)) {
+	if (tcp_send_process_no_lock(conn)) {
 		tcp_conn_unref(conn);
 	}
 out:
@@ -1125,8 +1099,9 @@ static void tcp_resend_data(struct k_work *work)
 	conn->unacked_len = 0;
 
 	ret = tcp_send_data(conn);
-	conn->send_data_retries++;
 	if (ret == 0) {
+		conn->send_data_retries++;
+
 		if (conn->in_close && conn->send_data_total == 0) {
 			NET_DBG("TCP connection in active close, "
 				"not disposing yet (waiting %dms)",
@@ -1812,13 +1787,11 @@ next_state:
 					      NET_CONTEXT_CONNECTED);
 
 			if (conn->accepted_conn) {
-				if (conn->accepted_conn->accept_cb) {
-					conn->accepted_conn->accept_cb(
-						conn->context,
-						&conn->accepted_conn->context->remote,
-						sizeof(struct sockaddr), 0,
-						conn->accepted_conn->context);
-				}
+				conn->accepted_conn->accept_cb(
+					conn->context,
+					&conn->accepted_conn->context->remote,
+					sizeof(struct sockaddr), 0,
+					conn->accepted_conn->context);
 
 				/* Make sure the accept_cb is only called once.
 				 */
@@ -2830,9 +2803,10 @@ void net_tcp_init(void)
 #endif
 
 #if IS_ENABLED(CONFIG_NET_TC_THREAD_COOPERATIVE)
-#define THREAD_PRIORITY K_PRIO_COOP(0)
+/* Lowest priority cooperative thread */
+#define THREAD_PRIORITY K_PRIO_COOP(CONFIG_NUM_COOP_PRIORITIES - 1)
 #else
-#define THREAD_PRIORITY K_PRIO_PREEMPT(0)
+#define THREAD_PRIORITY K_PRIO_PREEMPT(CONFIG_NUM_PREEMPT_PRIORITIES - 1)
 #endif
 
 	/* Use private workqueue in order not to block the system work queue.
