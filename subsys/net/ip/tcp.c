@@ -844,6 +844,25 @@ static bool is_destination_local(struct net_pkt *pkt)
 	return false;
 }
 
+static bool is_destination_local(struct net_pkt *pkt)
+{
+	if (IS_ENABLED(CONFIG_NET_IPV4) && net_pkt_family(pkt) == AF_INET) {
+		if (net_ipv4_is_addr_loopback(&NET_IPV4_HDR(pkt)->dst) ||
+		    net_ipv4_is_my_addr(&NET_IPV4_HDR(pkt)->dst)) {
+			return true;
+		}
+	}
+
+	if (IS_ENABLED(CONFIG_NET_IPV6) && net_pkt_family(pkt) == AF_INET6) {
+		if (net_ipv6_is_addr_loopback(&NET_IPV6_HDR(pkt)->dst) ||
+		    net_ipv6_is_my_addr(&NET_IPV6_HDR(pkt)->dst)) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
 static int tcp_out_ext(struct tcp *conn, uint8_t flags, struct net_pkt *data,
 		       uint32_t seq)
 {
