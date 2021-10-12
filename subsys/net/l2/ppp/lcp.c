@@ -308,9 +308,8 @@ static void lcp_init(struct ppp_context *ctx)
 
 	ppp_fsm_name_set(&ctx->lcp.fsm, ppp_proto2str(PPP_LCP));
 
-	ctx->lcp.my_options.mru = net_if_get_mtu(ctx->iface);
-
 #if defined(CONFIG_NET_L2_PPP_OPTION_MRU)
+	ctx->lcp.my_options.mru = net_if_get_mtu(ctx->iface);
 	ctx->lcp.fsm.my_options.info = lcp_my_options;
 	ctx->lcp.fsm.my_options.data = ctx->lcp.my_options_data;
 	ctx->lcp.fsm.my_options.count = ARRAY_SIZE(lcp_my_options);
