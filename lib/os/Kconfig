@@ -46,11 +46,6 @@ config SYS_HEAP_ALLOC_LOOPS
 	  keeps the maximum runtime at a tight bound so that the heap
 	  is useful in locked or ISR contexts.
 
-config SYS_HEAP_RUNTIME_STATS
-	bool "System heap runtime statistics"
-	help
-	  Gather system heap runtime statistics.
-
 choice
 	prompt "Supported heap sizes"
 	depends on !64BIT
@@ -129,12 +124,6 @@ config REBOOT
 	  Enable the sys_reboot() API. Enabling this can drag in other subsystems
 	  needed to perform a "safe" reboot (e.g. SYSTEM_CLOCK_DISABLE, to stop the
 	  system clock before issuing a reset).
-
-config UTF8
-	bool "UTF-8 string operation supported"
-	help
-	  Enable the utf8 API. The API implements functions to specifically
-	  handle UTF-8 encoded strings.
 
 rsource "Kconfig.cbprintf"
 
