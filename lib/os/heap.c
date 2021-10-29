@@ -377,6 +377,10 @@ void *sys_heap_aligned_realloc(struct sys_heap *heap, void *ptr,
 		h->allocated_bytes += split_size * CHUNK_UNIT;
 #endif
 
+#ifdef CONFIG_SYS_HEAP_RUNTIME_STATS
+		h->allocated_bytes += split_size * CHUNK_UNIT;
+#endif
+
 		free_list_remove(h, rc);
 
 		if (split_size < chunk_size(h, rc)) {
