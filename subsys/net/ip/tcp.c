@@ -844,25 +844,6 @@ static bool is_destination_local(struct net_pkt *pkt)
 	return false;
 }
 
-static bool is_destination_local(struct net_pkt *pkt)
-{
-	if (IS_ENABLED(CONFIG_NET_IPV4) && net_pkt_family(pkt) == AF_INET) {
-		if (net_ipv4_is_addr_loopback(&NET_IPV4_HDR(pkt)->dst) ||
-		    net_ipv4_is_my_addr(&NET_IPV4_HDR(pkt)->dst)) {
-			return true;
-		}
-	}
-
-	if (IS_ENABLED(CONFIG_NET_IPV6) && net_pkt_family(pkt) == AF_INET6) {
-		if (net_ipv6_is_addr_loopback(&NET_IPV6_HDR(pkt)->dst) ||
-		    net_ipv6_is_my_addr(&NET_IPV6_HDR(pkt)->dst)) {
-			return true;
-		}
-	}
-
-	return false;
-}
-
 static int tcp_out_ext(struct tcp *conn, uint8_t flags, struct net_pkt *data,
 		       uint32_t seq)
 {
@@ -1140,9 +1121,8 @@ static void tcp_resend_data(struct k_work *work)
 	conn->unacked_len = 0;
 
 	ret = tcp_send_data(conn);
+	conn->send_data_retries++;
 	if (ret == 0) {
-		conn->send_data_retries++;
-
 		if (conn->in_close && conn->send_data_total == 0) {
 			NET_DBG("TCP connection in active close, "
 				"not disposing yet (waiting %dms)",
@@ -2836,7 +2816,7 @@ const char *net_tcp_state_str(enum tcp_state state)
 void net_tcp_init(void)
 {
 #if defined(CONFIG_NET_TEST_PROTOCOL)
-	/* Register inputs for TTCN-3 based TCP sanity check */
+	/* Register inputs for TTCN-3 based TCP2 sanity check */
 	test_cb_register(AF_INET,  IPPROTO_TCP, 4242, 4242, tcp_input);
 	test_cb_register(AF_INET6, IPPROTO_TCP, 4242, 4242, tcp_input);
 	test_cb_register(AF_INET,  IPPROTO_UDP, 4242, 4242, tp_input);
