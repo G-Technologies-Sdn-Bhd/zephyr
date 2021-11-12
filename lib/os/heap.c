@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 #include <sys/sys_heap.h>
-#include <sys/util.h>
 #include <kernel.h>
 #include <string.h>
 #include "heap.h"
@@ -25,11 +24,11 @@ static void free_list_remove_bidx(struct z_heap *h, chunkid_t c, int bidx)
 
 	CHECK(!chunk_used(h, c));
 	CHECK(b->next != 0);
-	CHECK(h->avail_buckets & BIT(bidx));
+	CHECK(h->avail_buckets & (1 << bidx));
 
 	if (next_free_chunk(h, c) == c) {
 		/* this is the last chunk */
-		h->avail_buckets &= ~BIT(bidx);
+		h->avail_buckets &= ~(1 << bidx);
 		b->next = 0;
 	} else {
 		chunkid_t first = prev_free_chunk(h, c),
@@ -58,15 +57,15 @@ static void free_list_add_bidx(struct z_heap *h, chunkid_t c, int bidx)
 	struct z_heap_bucket *b = &h->buckets[bidx];
 
 	if (b->next == 0U) {
-		CHECK((h->avail_buckets & BIT(bidx)) == 0);
+		CHECK((h->avail_buckets & (1 << bidx)) == 0);
 
 		/* Empty list, first item */
-		h->avail_buckets |= BIT(bidx);
+		h->avail_buckets |= (1 << bidx);
 		b->next = c;
 		set_prev_free_chunk(h, c, c);
 		set_next_free_chunk(h, c, c);
 	} else {
-		CHECK(h->avail_buckets & BIT(bidx));
+		CHECK(h->avail_buckets & (1 << bidx));
 
 		/* Insert before (!) the "next" pointer */
 		chunkid_t second = b->next;
@@ -217,7 +216,7 @@ static chunkid_t alloc_chunk(struct z_heap *h, chunksz_t sz)
 	/* Otherwise pick the smallest non-empty bucket guaranteed to
 	 * fit and use that unconditionally.
 	 */
-	uint32_t bmask = h->avail_buckets & ~BIT_MASK(bi + 1);
+	uint32_t bmask = h->avail_buckets & ~((1 << (bi + 1)) - 1);
 
 	if (bmask != 0U) {
 		int minbucket = __builtin_ctz(bmask);
@@ -372,10 +371,6 @@ void *sys_heap_aligned_realloc(struct sys_heap *heap, void *ptr,
 		   (chunk_size(h, c) + chunk_size(h, rc) >= chunks_need)) {
 		/* Expand: split the right chunk and append */
 		chunksz_t split_size = chunks_need - chunk_size(h, c);
-
-#ifdef CONFIG_SYS_HEAP_RUNTIME_STATS
-		h->allocated_bytes += split_size * CHUNK_UNIT;
-#endif
 
 #ifdef CONFIG_SYS_HEAP_RUNTIME_STATS
 		h->allocated_bytes += split_size * CHUNK_UNIT;
