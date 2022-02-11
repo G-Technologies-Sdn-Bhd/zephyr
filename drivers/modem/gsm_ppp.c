@@ -15,7 +15,6 @@ LOG_MODULE_REGISTER(modem_gsm, CONFIG_MODEM_LOG_LEVEL);
 #include <device.h>
 #include <sys/ring_buffer.h>
 #include <sys/util.h>
-#include <sys/printk.h>
 #include <net/ppp.h>
 #include <drivers/modem/gsm_ppp.h>
 #include <drivers/modem/quectel.h>
@@ -112,6 +111,7 @@ static struct gsm_modem {
 		GSM_PPP_STATE_AT_CHANNEL,
 		GSM_PPP_STATE_DONE,
 		GSM_PPP_SETUP = GSM_PPP_STATE_DONE,
+		GSM_PPP_REGISTERING,
 		GSM_PPP_ATTACHING,
 		GSM_PPP_ATTACHED,
 		GSM_PPP_SETUP_DONE,
@@ -949,7 +949,7 @@ static void gsm_finalize_connection(struct k_work *work)
 	}
 
 	/* If modem is searching for network, we should skip the setup step */
-	if ((gsm->net_state != GSM_ROAMING) && (gsm->net_state != GSM_HOME_NETWORK)) {
+	if (gsm->state == GSM_PPP_REGISTERING) {
 		goto registering;
 	}
 
@@ -1006,6 +1006,7 @@ static void gsm_finalize_connection(struct k_work *work)
 	}
 
 registering:
+	gsm->state = GSM_PPP_REGISTERING;
 	/* Wait for cell tower registration */
 	ret = modem_cmd_send_nolock(&gsm->context.iface,
 				    &gsm->context.cmd_handler,
@@ -1020,25 +1021,6 @@ registering:
 				MSEC_PER_SEC / GSM_REGISTER_DELAY_MSEC;
 		} else {
 			gsm->retries--;
-
-			/* Reset RF if timed out */
-			if (!gsm->retries) {
-				(void)modem_cmd_send_nolock(&gsm->context.iface,
-							    &gsm->context.cmd_handler,
-							    &response_cmds[0],
-							    ARRAY_SIZE(response_cmds),
-							    "AT+CFUN=0", &gsm->sem_response,
-							    GSM_CMD_AT_TIMEOUT);
-
-				k_msleep(GSM_REGISTER_DELAY_MSEC);
-
-				(void)modem_cmd_send_nolock(&gsm->context.iface,
-							    &gsm->context.cmd_handler,
-							    &response_cmds[0],
-							    ARRAY_SIZE(response_cmds),
-							    "AT+CFUN=1", &gsm->sem_response,
-							    GSM_CMD_AT_TIMEOUT);
-			}
 		}
 
 		(void)gsm_work_reschedule(&gsm->gsm_configure_work,
@@ -1514,10 +1496,6 @@ static int quectel_gnss_cfg_plane(void)
 	return ret;
 }
 
-#ifndef CONFIG_MODEM_GSM_QUECTELL_GNSS_SUPL_URL
-#define CONFIG_MODEM_GSM_QUECTELL_GNSS_SUPL_URL ""
-#endif
-
 static int quectel_gnss_cfg_suplurl(void)
 {
 	int  ret;
@@ -1536,9 +1514,6 @@ static int quectel_gnss_cfg_suplurl(void)
 	return ret;
 }
 
-#ifndef CONFIG_MODEM_GSM_QUECTELL_GNSS_QLOC_TOK
-#define CONFIG_MODEM_GSM_QUECTELL_GNSS_QLOC_TOK ""
-#endif
 static int quectel_gnss_cfg_token(void)
 {
 	int  ret;
@@ -2016,8 +1991,6 @@ static int gsm_init(const struct device *dev)
 #endif	/* CONFIG_MODEM_SHELL */
 
 	gsm->context.is_automatic_oper = false;
-
-	gsm->gsm_data.hw_flow_control = DT_PROP(GSM_UART_NODE, hw_flow_control);
 	gsm->gsm_data.rx_rb_buf = &gsm->gsm_rx_rb_buf[0];
 	gsm->gsm_data.rx_rb_buf_len = sizeof(gsm->gsm_rx_rb_buf);
 
