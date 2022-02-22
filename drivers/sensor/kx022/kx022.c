@@ -495,7 +495,7 @@ static int kx022_init(const struct device *dev)
 	const struct kx022_config *const cfg = dev->config;
 	struct kx022_data *data = dev->data;
 	uint8_t chip_id;
-	uint8_t val;
+	uint8_t val,clr;
 	int ret;
 
 	if (cfg->bus_init(dev) < 0) {
@@ -512,7 +512,7 @@ static int kx022_init(const struct device *dev)
 		LOG_DBG("Invalid chip id 0x%x", chip_id);
 		return -EIO;
 	}
-
+	ret = data->hw_tf->read_reg(dev, KX022_REG_INT_REL, &clr);
 
 	/* s/w reset the sensor */
 	ret = data->hw_tf->update_reg(dev, KX022_REG_CNTL2, KX022_MASK_CNTL2_SRST,
