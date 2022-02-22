@@ -294,7 +294,7 @@ int kx022_trigger_set(const struct device *dev, const struct sensor_trigger *tri
 		return ret;
 	}
 
-	__ASSERT_NO_MSG(trig->type == SENSOR_TRIG_DELTA);
+	// __ASSERT_NO_MSG(trig->type == SENSOR_TRIG_DELTA);
 
 	// if (gpio_pin_interrupt_configure(data->gpio, cfg->irq_pin, GPIO_INT_DISABLE)) {
 	if (gpio_pin_interrupt_configure_dt(&cfg->gpio_int, GPIO_INT_DISABLE)) {
