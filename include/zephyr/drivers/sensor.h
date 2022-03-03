@@ -190,6 +190,8 @@ enum sensor_channel {
 	SENSOR_CHAN_DELTA_XY,
 	/** Rawdata from sensor */
 	SENSOR_CHAN_RAWDATA,
+	/** NPK (Nitrogen,phosphorus and potassium) content in soil**/
+	SENSOR_CHAN_SOIL_NPK,
 
 	/** All channels. */
 	SENSOR_CHAN_ALL,
