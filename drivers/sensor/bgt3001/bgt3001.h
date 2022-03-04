@@ -49,8 +49,8 @@ struct bgt3001_data {
 
 	uint8_t rd_data[BGT3001_CMD_MAX][BGT3001_RD_BUF_LEN];
 
-	struct k_sem tx_sem;
-	struct k_sem rx_sem;
+	struct k_sem tx_sem_bgt;
+	struct k_sem rx_sem_bgt;
 
 	enum bgt3001_cmd cmd;
 };
