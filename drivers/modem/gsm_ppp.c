@@ -15,6 +15,7 @@ LOG_MODULE_REGISTER(modem_gsm, CONFIG_MODEM_LOG_LEVEL);
 #include <device.h>
 #include <sys/ring_buffer.h>
 #include <sys/util.h>
+#include <sys/printk.h>
 #include <net/ppp.h>
 #include <drivers/modem/gsm_ppp.h>
 #include <drivers/modem/quectel.h>
@@ -1513,6 +1514,10 @@ static int quectel_gnss_cfg_plane(void)
 	return ret;
 }
 
+#ifndef CONFIG_MODEM_GSM_QUECTELL_GNSS_SUPL_URL
+#define CONFIG_MODEM_GSM_QUECTELL_GNSS_SUPL_URL ""
+#endif
+
 static int quectel_gnss_cfg_suplurl(void)
 {
 	int  ret;
@@ -1531,6 +1536,9 @@ static int quectel_gnss_cfg_suplurl(void)
 	return ret;
 }
 
+#ifndef CONFIG_MODEM_GSM_QUECTELL_GNSS_QLOC_TOK
+#define CONFIG_MODEM_GSM_QUECTELL_GNSS_QLOC_TOK ""
+#endif
 static int quectel_gnss_cfg_token(void)
 {
 	int  ret;
