@@ -5,7 +5,7 @@
  */
 
 #include "vmszs.h"
-
+#include <pm/pm.h>
 static struct vmszs_data vmszs;
 struct k_sem tx_sem;
 static uint8_t rd_data[VMSZS_RD_BUF_LEN];
@@ -100,7 +100,7 @@ static void vmszs_uart_isr(const struct device *uart_dev, void *user_data)
 
 	if (uart_irq_tx_ready(uart_dev)) {
 
-		// printk("xfer_byte : %d \tdata: %x\r\n",xfer_bytes,vmszs_cmds[vmszs.cmd][xfer_bytes]);
+		printk("xfer_byte : %d \tdata: %x\r\n",xfer_bytes,vmszs_cmds[vmszs.cmd][xfer_bytes]);
 		xfer_bytes += uart_fifo_fill(uart_dev,&vmszs_cmds[vmszs.cmd][xfer_bytes],
 					     VMSZS_BUF_LEN - xfer_bytes);
 
@@ -255,8 +255,11 @@ static int vmszs_trigger_set(const struct device *dev, const struct sensor_trigg
 static int vmszs_sample_fetch(const struct device *dev, enum sensor_channel chan)
 {
 	int ret;
-	 ret =vmszs_poll_data(dev,VMSZS_CMD_GET_SAMPLE_DATA);
+	pm_constraint_set(PM_STATE_SUSPEND_TO_IDLE);
 
+	ret =vmszs_poll_data(dev,VMSZS_CMD_GET_SAMPLE_DATA);
+
+	pm_constraint_release(PM_STATE_SUSPEND_TO_IDLE);
 	return ret;
 }
 
