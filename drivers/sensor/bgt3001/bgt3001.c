@@ -5,6 +5,7 @@
  */
 
 #include "bgt3001.h"
+#include <pm/pm.h>
 
 static struct bgt3001_data bgt3001;
 struct k_sem tx_sem_bgt;
@@ -66,6 +67,7 @@ static void bgt3001_uart_isr(const struct device *uart_dev, void *user_data)
 {
 	static int xfer_bytes;
 	static int j = 0;
+	int i;
 	ARG_UNUSED(user_data);
 
 	if (uart_dev == NULL) {
@@ -244,8 +246,12 @@ static int bgt3001_trigger_set(const struct device *dev, const struct sensor_tri
 static int bgt3001_sample_fetch(const struct device *dev, enum sensor_channel chan)
 {
 	int ret;
-	 ret =bgt3001_poll_data(dev,BGT3001_CMD_GET_SAMPLE_DATA);
 
+	pm_constraint_set(PM_STATE_SUSPEND_TO_IDLE);
+
+	ret = bgt3001_poll_data(dev,BGT3001_CMD_GET_SAMPLE_DATA);
+
+	pm_constraint_release(PM_STATE_SUSPEND_TO_IDLE);
 	return ret;
 }
 
