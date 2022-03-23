@@ -471,12 +471,12 @@ static int gsm_query_cellinfo(struct gsm_modem *gsm)
 {
 	int ret;
 
-	ret = modem_cmd_handler_setup_cmds_nolock(&gsm->context.iface,
-						  &gsm->context.cmd_handler,
-						  query_cellinfo_cmds,
-						  ARRAY_SIZE(query_cellinfo_cmds),
-						  &gsm->sem_response,
-						  GSM_CMD_SETUP_TIMEOUT);
+	ret = modem_cmd_handler_setup_cmds(&gsm->context.iface,
+					   &gsm->context.cmd_handler,
+					   query_cellinfo_cmds,
+					   ARRAY_SIZE(query_cellinfo_cmds),
+					   &gsm->sem_response,
+					   GSM_CMD_SETUP_TIMEOUT);
 	if (ret < 0) {
 		LOG_WRN("modem query for cell info returned %d", ret);
 	}
@@ -781,12 +781,12 @@ static int gsm_query_modem_info(struct gsm_modem *gsm)
 		return 0;
 	}
 
-	ret =  modem_cmd_handler_setup_cmds_nolock(&gsm->context.iface,
-						  &gsm->context.cmd_handler,
-						  setup_modem_info_cmds,
-						  ARRAY_SIZE(setup_modem_info_cmds),
-						  &gsm->sem_response,
-						  GSM_CMD_SETUP_TIMEOUT);
+	ret =  modem_cmd_handler_setup_cmds(&gsm->context.iface,
+					    &gsm->context.cmd_handler,
+					    setup_modem_info_cmds,
+					    ARRAY_SIZE(setup_modem_info_cmds),
+					    &gsm->sem_response,
+					    GSM_CMD_SETUP_TIMEOUT);
 
 	if (ret < 0) {
 		return ret;
@@ -803,26 +803,26 @@ static int gsm_setup_mccmno(struct gsm_modem *gsm)
 
 	if (CONFIG_MODEM_GSM_MANUAL_MCCMNO[0]) {
 		/* use manual MCC/MNO entry */
-		ret = modem_cmd_send_nolock(&gsm->context.iface,
-					    &gsm->context.cmd_handler,
-					    NULL, 0,
-					    "AT+COPS=1,2,\""
-					    CONFIG_MODEM_GSM_MANUAL_MCCMNO
-					    "\"",
-					    &gsm->sem_response,
-					    GSM_CMD_AT_TIMEOUT);
+		ret = modem_cmd_send(&gsm->context.iface,
+				     &gsm->context.cmd_handler,
+				     NULL, 0,
+				     "AT+COPS=1,2,\""
+				     CONFIG_MODEM_GSM_MANUAL_MCCMNO
+				     "\"",
+				     &gsm->sem_response,
+				     GSM_CMD_AT_TIMEOUT);
 	} else {
 
 /* First AT+COPS? is sent to check if automatic selection for operator
  * is already enabled, if yes we do not send the command AT+COPS= 0,0.
  */
 
-		ret = modem_cmd_send_nolock(&gsm->context.iface,
-					    &gsm->context.cmd_handler,
-					    &read_cops_cmd,
-					    1, "AT+COPS?",
-					    &gsm->sem_response,
-					    GSM_CMD_SETUP_TIMEOUT);
+		ret = modem_cmd_send(&gsm->context.iface,
+				     &gsm->context.cmd_handler,
+				     &read_cops_cmd,
+				     1, "AT+COPS?",
+				     &gsm->sem_response,
+				     GSM_CMD_SETUP_TIMEOUT);
 
 		if (ret < 0) {
 			return ret;
@@ -830,11 +830,11 @@ static int gsm_setup_mccmno(struct gsm_modem *gsm)
 
 		if (!gsm->context.is_automatic_oper) {
 			/* register operator automatically */
-			ret = modem_cmd_send_nolock(&gsm->context.iface,
-						    &gsm->context.cmd_handler,
-						    NULL, 0, "AT+COPS=0,0",
-						    &gsm->sem_response,
-						    GSM_CMD_AT_TIMEOUT);
+			ret = modem_cmd_send(&gsm->context.iface,
+					     &gsm->context.cmd_handler,
+					     NULL, 0, "AT+COPS=0,0",
+					     &gsm->sem_response,
+					     GSM_CMD_AT_TIMEOUT);
 		}
 	}
 
@@ -954,12 +954,12 @@ static void gsm_finalize_connection(struct k_work *work)
 	}
 
 	if (IS_ENABLED(CONFIG_GSM_MUX)) {
-		ret = modem_cmd_send_nolock(&gsm->context.iface,
-					    &gsm->context.cmd_handler,
-					    &response_cmds[0],
-					    ARRAY_SIZE(response_cmds),
-					    "AT", &gsm->sem_response,
-					    GSM_CMD_AT_TIMEOUT);
+		ret = modem_cmd_send(&gsm->context.iface,
+				     &gsm->context.cmd_handler,
+				     &response_cmds[0],
+				     ARRAY_SIZE(response_cmds),
+				     "AT", &gsm->sem_response,
+				     GSM_CMD_AT_TIMEOUT);
 		if (ret < 0) {
 			LOG_ERR("%s returned %d, %s", "AT", ret, "retrying...");
 			(void)gsm_work_reschedule(&gsm->gsm_configure_work, K_SECONDS(1));
@@ -969,12 +969,12 @@ static void gsm_finalize_connection(struct k_work *work)
 	gsm->state = GSM_PPP_SETUP;
 
 	if (IS_ENABLED(CONFIG_MODEM_GSM_FACTORY_RESET_AT_BOOT)) {
-		(void)modem_cmd_send_nolock(&gsm->context.iface,
-					    &gsm->context.cmd_handler,
-					    &response_cmds[0],
-					    ARRAY_SIZE(response_cmds),
-					    "AT&F", &gsm->sem_response,
-					    GSM_CMD_AT_TIMEOUT);
+		(void)modem_cmd_send(&gsm->context.iface,
+				     &gsm->context.cmd_handler,
+				     &response_cmds[0],
+				     ARRAY_SIZE(response_cmds),
+				     "AT&F", &gsm->sem_response,
+				     GSM_CMD_AT_TIMEOUT);
 		k_sleep(K_SECONDS(1));
 	}
 
@@ -986,12 +986,12 @@ static void gsm_finalize_connection(struct k_work *work)
 		goto unlock;
 	}
 
-	ret = modem_cmd_handler_setup_cmds_nolock(&gsm->context.iface,
-						  &gsm->context.cmd_handler,
-						  setup_cmds,
-						  ARRAY_SIZE(setup_cmds),
-						  &gsm->sem_response,
-						  GSM_CMD_SETUP_TIMEOUT);
+	ret = modem_cmd_handler_setup_cmds(&gsm->context.iface,
+					   &gsm->context.cmd_handler,
+					   setup_cmds,
+					   ARRAY_SIZE(setup_cmds),
+					   &gsm->sem_response,
+					   GSM_CMD_SETUP_TIMEOUT);
 	if (ret < 0) {
 		LOG_DBG("%s returned %d, %s", "setup_cmds", ret, "retrying...");
 		(void)gsm_work_reschedule(&gsm->gsm_configure_work, K_SECONDS(1));
@@ -1053,10 +1053,54 @@ attaching:
 	/* Don't initialize PPP until we're attached to packet service */
 	ret = modem_cmd_send_nolock(&gsm->context.iface,
 				    &gsm->context.cmd_handler,
-				    &check_attached_cmd, 1,
-				    "AT+CGATT?",
+				    &check_net_reg_cmd, 1,
+				    "AT+CREG?",
 				    &gsm->sem_response,
 				    GSM_CMD_SETUP_TIMEOUT);
+	if ((ret < 0) || ((gsm->net_state != GSM_ROAMING) &&
+			 (gsm->net_state != GSM_HOME_NETWORK))) {
+		if (!gsm->retries) {
+			gsm->retries = GSM_REGISTER_TIMEOUT *
+				MSEC_PER_SEC / GSM_REGISTER_DELAY_MSEC;
+		} else {
+			gsm->retries--;
+
+			/* Reset RF if timed out */
+			if (!gsm->retries) {
+				(void)modem_cmd_send(&gsm->context.iface,
+						     &gsm->context.cmd_handler,
+						     &response_cmds[0],
+						     ARRAY_SIZE(response_cmds),
+						     "AT+CFUN=0", &gsm->sem_response,
+						     GSM_CMD_AT_TIMEOUT);
+
+				k_msleep(GSM_REGISTER_DELAY_MSEC);
+
+				(void)modem_cmd_send(&gsm->context.iface,
+						     &gsm->context.cmd_handler,
+						     &response_cmds[0],
+						     ARRAY_SIZE(response_cmds),
+						     "AT+CFUN=1", &gsm->sem_response,
+						     GSM_CMD_AT_TIMEOUT);
+			}
+		}
+
+		(void)gsm_work_reschedule(&gsm->gsm_configure_work,
+					  K_MSEC(GSM_REGISTER_DELAY_MSEC));
+		goto unlock;
+	}
+
+	gsm->retries = 0;
+
+	gsm->state = GSM_PPP_ATTACHING;
+attaching:
+	/* Don't initialize PPP until we're attached to packet service */
+	ret = modem_cmd_send(&gsm->context.iface,
+			     &gsm->context.cmd_handler,
+			     &check_attached_cmd, 1,
+			     "AT+CGATT?",
+			     &gsm->sem_response,
+			     GSM_CMD_SETUP_TIMEOUT);
 	if (ret < 0) {
 		/*
 		 * attach_retries not set        -> trigger N attach retries
@@ -1106,12 +1150,12 @@ attaching:
 
 	LOG_DBG("modem RSSI: %d, %s", *gsm->context.data_rssi, "enable PPP");
 
-	ret = modem_cmd_handler_setup_cmds_nolock(&gsm->context.iface,
-						  &gsm->context.cmd_handler,
-						  connect_cmds,
-						  ARRAY_SIZE(connect_cmds),
-						  &gsm->sem_response,
-						  GSM_CMD_SETUP_TIMEOUT);
+	ret = modem_cmd_handler_setup_cmds(&gsm->context.iface,
+					   &gsm->context.cmd_handler,
+					   connect_cmds,
+					   ARRAY_SIZE(connect_cmds),
+					   &gsm->sem_response,
+					   GSM_CMD_SETUP_TIMEOUT);
 	if (ret < 0) {
 		LOG_DBG("%s returned %d, %s", "connect_cmds", ret, "retrying...");
 		(void)gsm_work_reschedule(&gsm->gsm_configure_work, K_SECONDS(1));
@@ -1129,13 +1173,12 @@ attaching:
 			LOG_DBG("iface %suart error %d", "AT ", ret);
 		} else {
 			/* Do a test and try to send AT command to modem */
-			ret = modem_cmd_send_nolock(
-				&gsm->context.iface,
-				&gsm->context.cmd_handler,
-				&response_cmds[0],
-				ARRAY_SIZE(response_cmds),
-				"AT", &gsm->sem_response,
-				GSM_CMD_AT_TIMEOUT);
+			ret = modem_cmd_send(&gsm->context.iface,
+					     &gsm->context.cmd_handler,
+					     &response_cmds[0],
+					     ARRAY_SIZE(response_cmds),
+					     "AT", &gsm->sem_response,
+					     GSM_CMD_AT_TIMEOUT);
 			if (ret < 0) {
 				LOG_WRN("%s returned %d, %s", "modem setup",
 					ret, "AT cmds failed");
@@ -1160,7 +1203,7 @@ static int mux_enable(struct gsm_modem *gsm)
 
 	/* Turn on muxing */
 	if (IS_ENABLED(CONFIG_MODEM_GSM_SIMCOM)) {
-		ret = modem_cmd_send_nolock(
+		ret = modem_cmd_send(
 			&gsm->context.iface,
 			&gsm->context.cmd_handler,
 			&response_cmds[0],
@@ -1182,14 +1225,14 @@ static int mux_enable(struct gsm_modem *gsm)
 			&gsm->sem_response,
 			GSM_CMD_AT_TIMEOUT);
 	} else if (IS_ENABLED(CONFIG_MODEM_GSM_QUECTEL)) {
-		ret = modem_cmd_send_nolock(&gsm->context.iface,
-				    &gsm->context.cmd_handler,
-				    &response_cmds[0],
-				    ARRAY_SIZE(response_cmds),
-				    "AT+CMUX=0,0,5,"
-				    STRINGIFY(CONFIG_GSM_MUX_MRU_DEFAULT_LEN),
-				    &gsm->sem_response,
-				    GSM_CMD_AT_TIMEOUT);
+		ret = modem_cmd_send(&gsm->context.iface,
+				     &gsm->context.cmd_handler,
+				     &response_cmds[0],
+				     ARRAY_SIZE(response_cmds),
+				     "AT+CMUX=0,0,5,"
+				     STRINGIFY(CONFIG_GSM_MUX_MRU_DEFAULT_LEN),
+				     &gsm->sem_response,
+				     GSM_CMD_AT_TIMEOUT);
 
 		/* Arbitrary delay for Quectel modems to initialize the CMUX,
 		 * without this the AT cmd will fail.
@@ -1197,7 +1240,7 @@ static int mux_enable(struct gsm_modem *gsm)
 		k_sleep(K_SECONDS(1));
 	} else {
 		/* Generic GSM modem */
-		ret = modem_cmd_send_nolock(&gsm->context.iface,
+		ret = modem_cmd_send(&gsm->context.iface,
 				     &gsm->context.cmd_handler,
 				     &response_cmds[0],
 				     ARRAY_SIZE(response_cmds),
@@ -1206,7 +1249,7 @@ static int mux_enable(struct gsm_modem *gsm)
 	}
 
 	if (ret < 0) {
-		LOG_ERR("AT+CMUX ret:%d", ret);
+		LOG_ERR("%s ret:%d", "AT+CMUX", ret);
 	}
 
 	return ret;
@@ -1348,6 +1391,11 @@ static void mux_setup(struct k_work *work)
 
 	gsm_ppp_unlock(gsm);
 	return;
+next:
+	gsm_work_reschedule(&gsm->gnss_configure_work, K_MSEC(1));
+unlock:
+	gsm_ppp_unlock(gsm);
+}
 
 fail:
 	gsm->state = GSM_PPP_STATE_ERROR;
@@ -1792,8 +1840,8 @@ static void gsm_configure(struct k_work *work)
 
 	LOG_DBG("Starting modem %p configuration", gsm);
 
-	if (gsm->modem_on_cb) {
-		gsm->modem_on_cb(gsm->dev, gsm->user_data);
+	if (gsm->state == GSM_PPP_WAIT_AT) {
+		goto wait_at;
 	}
 
 	if (gsm->state == GSM_PPP_START) {
@@ -1900,7 +1948,6 @@ void gsm_ppp_stop(const struct device *dev)
 {
 	struct gsm_modem *gsm = dev->data;
 	struct net_if *iface = gsm->iface;
-	struct k_work_sync work_sync;
 
 	if (gsm->state == GSM_PPP_STOP) {
 		LOG_ERR("gsm_ppp is already %s", "stopped");
@@ -1923,11 +1970,6 @@ void gsm_ppp_stop(const struct device *dev)
 		if (gsm->ppp_dev) {
 			uart_mux_disable(gsm->ppp_dev);
 		}
-	}
-
-	if (modem_cmd_handler_tx_lock(&gsm->context.cmd_handler,
-				      K_SECONDS(10))) {
-		LOG_WRN("Failed locking modem cmds!");
 	}
 
 	if (gsm->modem_off_cb) {
@@ -1992,6 +2034,7 @@ static int gsm_init(const struct device *dev)
 	gsm->cmd_handler_data.buf_pool = &gsm_recv_pool;
 	gsm->cmd_handler_data.alloc_timeout = K_NO_WAIT;
 	gsm->cmd_handler_data.eol = "\r";
+	gsm->cmd_handler_data.use_mutex = true;
 
 	k_sem_init(&gsm->sem_response, 0, 1);
 
