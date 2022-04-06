@@ -218,6 +218,48 @@ exit:
 	return ret;
 }
 
+int kx022_drdy_setup(const struct device *dev,
+                        sensor_trigger_handler_t handler)
+{
+    struct kx022_data *data = dev->data;
+    int ret;
+  	data->drdy_handler = handler;
+
+     ret = kx022_standby_mode(dev);
+
+    ret = data->hw_tf->update_reg(dev, KX022_REG_CNTL1,
+                KX022_MASK_CNTL1_DRDYE,
+                KX022_CNTL1_DRDYE);
+	if (ret < 0) {
+		LOG_ERR("Failed set data ready detect");
+		goto exit;
+	}
+
+    ret = data->hw_tf->update_reg(dev,
+                KX022_REG_ODCNTL,
+                KX022_MASK_ODCNTL_OSA,
+                KX022_ODCNTL_50HZ) ;
+	if (ret < 0) {
+		LOG_ERR("Failed set data ready odr");
+		goto exit;
+	}
+
+     ret = data->hw_tf->update_reg(dev,
+                KX022_REG_INC4,
+                KX022_MASK_INC4_DRDYI1,
+                KX022_INC4_DRDYI1);
+
+	if (ret < 0) {
+		LOG_ERR("Failed set data ready int1");
+		goto exit;
+	}
+exit:
+	 (void)kx022_operating_mode(dev);
+
+	  return ret;
+
+}
+
 static int kx022_tilt_setup(const struct device *dev, sensor_trigger_handler_t handler)
 {
 	struct kx022_data *data = dev->data;
@@ -298,7 +340,6 @@ int kx022_trigger_set(const struct device *dev, const struct sensor_trigger *tri
 	switch ((int)trig->type) {
 	case SENSOR_TRIG_KX022_MOTION:
 		ret = kx022_motion_setup(dev, handler);
-		// ret = kx022_drdy_setup(dev,handler);
 		break;
 
 	case SENSOR_TRIG_KX022_TILT:
