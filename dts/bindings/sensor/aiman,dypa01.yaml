@@ -1,0 +1,8 @@
+# Copyright (c) 2021 G-Technologies Sdn. Bhd.
+# SPDX-License-Identifier: Apache-2.0
+
+description: Aiman DYPA01 ultrasonic water level sensor
+
+compatible: "aiman,dypa01"
+
+include: uart-device.yaml

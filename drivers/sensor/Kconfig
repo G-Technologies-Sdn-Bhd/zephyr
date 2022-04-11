@@ -82,6 +82,8 @@ source "drivers/sensor/dht/Kconfig"
 
 source "drivers/sensor/dps310/Kconfig"
 
+source "drivers/sensor/dypa01/Kconfig"
+
 source "drivers/sensor/ens210/Kconfig"
 
 source "drivers/sensor/fdc2x1x/Kconfig"
