@@ -30,8 +30,6 @@ static void dypa01_uart_isr(const struct device *uart_dev, void *user_data)
 	const struct device *dev = user_data;
 	struct dypa01_data *d = dev->data;
 
-
-
 	ARG_UNUSED(user_data);
 
 	if (uart_dev == NULL) {
@@ -47,6 +45,7 @@ static void dypa01_uart_isr(const struct device *uart_dev, void *user_data)
 
 		d->xfer_bytes += uart_fifo_read(uart_dev, &d->buffer[d->xfer_bytes],
 					     DYPA01_BUF_LEN - d->xfer_bytes);
+
 
 		if (d->xfer_bytes == DYPA01_BUF_LEN){
 			d->xfer_bytes = 0;
@@ -71,10 +70,7 @@ static inline int dypa01_poll_data(const struct device *dev)
 
 	k_sem_reset(&d->rx_sem);
 	uart_irq_rx_enable(cfg->uart_dev);
-
 	ret = k_sem_take(&d->rx_sem, dypa01_WAIT);
-
-	printk("ret = %d\n", ret);
 
 	/* find the index of the received uart buffer since
 		we could also have consecutive 0xFF */
@@ -82,13 +78,14 @@ static inline int dypa01_poll_data(const struct device *dev)
 		while(d->buffer[i] == 0xFF){
 			i++;
 		}
-		index = (i - 1);
+		index = i - 1;
 	}
 	else if (d->buffer[i] != 0xFF){
-		while (d->buffer[i] != 0xFF){
+		i++;
+		while (d->buffer[i] == 0xFF){
 			i++;
 		}
-		index = i;
+		index = i - 1;
 	}
 
 	while (count != 4){
@@ -109,7 +106,9 @@ static inline int dypa01_poll_data(const struct device *dev)
 
 static int dypa01_sample_fetch(const struct device *dev, enum sensor_channel chan)
 {
+	pm_constraint_set(PM_STATE_SUSPEND_TO_IDLE);
 	return dypa01_poll_data(dev);
+	pm_constraint_release(PM_STATE_SUSPEND_TO_IDLE);
 }
 
 
@@ -127,7 +126,7 @@ static int dypa01_channel_get(const struct device *dev, enum sensor_channel chan
 		return -EINVAL;
 	}
 
-	val->val1 = (int32_t)d->data;
+	val->val1 = (int16_t)d->data;
 	val->val2 = 0;
 
 	return 0;
