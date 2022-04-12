@@ -2,9 +2,6 @@
 #ifndef ZEPHYR_DRIVERS_SENSOR_DYPA01_DYPA01_H_
 #define ZEPHYR_DRIVERS_SENSOR_DYPA01_DYPA01_H_
 
-
-#include <errno.h>
-
 #include <zephyr.h>
 #include <kernel.h>
 #include <device.h>
