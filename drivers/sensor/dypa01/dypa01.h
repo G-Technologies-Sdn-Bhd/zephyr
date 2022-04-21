@@ -9,7 +9,7 @@
 #include <drivers/uart.h>
 
 
-#define DYPA01_BUF_LEN 8
+#define DYPA01_BUF_LEN 16
 #define DYPA01_DATA_LEN 4
 
 #define dypa01_TIMEOUT 1000 *MSEC_PER_SEC
