@@ -46,8 +46,9 @@ static void dypa01_uart_isr(const struct device *uart_dev, void *user_data)
 		d->xfer_bytes += uart_fifo_read(uart_dev, &d->buffer[d->xfer_bytes],
 					     DYPA01_BUF_LEN - d->xfer_bytes);
 
-
 		if (d->xfer_bytes == DYPA01_BUF_LEN){
+
+		//	LOG_HEXDUMP_INF( d->buffer,sizeof(d->buffer),"Rd data:");
 			d->xfer_bytes = 0;
 			uart_irq_rx_disable(uart_dev);
 			k_sem_give(&d->rx_sem);
@@ -82,7 +83,10 @@ static inline int dypa01_poll_data(const struct device *dev)
 	}
 	else if (d->buffer[i] != 0xFF){
 		i++;
-		while (d->buffer[i] == 0xFF){
+		while (d->buffer[i] != 0xFF){
+			i++;
+		}
+		while(d->buffer[i] == 0xFF){
 			i++;
 		}
 		index = i - 1;
@@ -91,6 +95,10 @@ static inline int dypa01_poll_data(const struct device *dev)
 	while (count != 4){
 		d->rd_data[count++] = d->buffer[index++];
 	}
+			LOG_HEXDUMP_INF( d->buffer,sizeof(d->buffer),"Rd data:");
+
+	LOG_HEXDUMP_INF( d->rd_data,sizeof(d->rd_data),"Rd data 2:");
+
 
 	sum = checksum(d->rd_data);
 	if (sum != d->rd_data[3]){
