@@ -42,7 +42,6 @@ static void dypa01_uart_isr(const struct device *uart_dev, void *user_data)
 	}
 
 	if (uart_irq_rx_ready(uart_dev)) {
-
 		d->xfer_bytes += uart_fifo_read(uart_dev, &d->buffer[d->xfer_bytes],
 					     DYPA01_BUF_LEN - d->xfer_bytes);
 
@@ -72,6 +71,9 @@ static inline int dypa01_poll_data(const struct device *dev)
 	k_sem_reset(&d->rx_sem);
 	uart_irq_rx_enable(cfg->uart_dev);
 	ret = k_sem_take(&d->rx_sem, dypa01_WAIT);
+	if (ret) {
+		return ret;
+	}
 
 	/* find the index of the received uart buffer since
 		we could also have consecutive 0xFF */
@@ -95,10 +97,9 @@ static inline int dypa01_poll_data(const struct device *dev)
 	while (count != 4){
 		d->rd_data[count++] = d->buffer[index++];
 	}
-			LOG_HEXDUMP_INF( d->buffer,sizeof(d->buffer),"Rd data:");
 
-	LOG_HEXDUMP_INF( d->rd_data,sizeof(d->rd_data),"Rd data 2:");
-
+	// LOG_HEXDUMP_INF( d->buffer,sizeof(d->buffer),"Rd data:");
+	// LOG_HEXDUMP_INF( d->rd_data,sizeof(d->rd_data),"Rd data 2:");
 
 	sum = checksum(d->rd_data);
 	if (sum != d->rd_data[3]){
@@ -152,6 +153,7 @@ static int dypa01_init(const struct device *dev)
 
 	memset(d, 0, sizeof(struct dypa01_data));
 
+	uart_irq_tx_disable(cfg->uart_dev);
 	uart_irq_rx_disable(cfg->uart_dev);
 
 	dypa01_uart_flush(cfg->uart_dev);
