@@ -52,7 +52,6 @@ static void dypa01_uart_isr(const struct device *uart_dev, void *user_data)
 			uart_irq_rx_disable(uart_dev);
 			k_sem_give(&d->rx_sem);
 		}
-
 	}
 }
 
@@ -80,12 +79,12 @@ static inline int dypa01_poll_data(const struct device *dev)
 		we could also have consecutive 0xFF */
 refind:
 	retry++;
-	
+
 	if (retry > 2)
 	{
 		return -EBADMSG;
 	}
-	
+
 	if (d->buffer[i] == 0xFF){
 		while(d->buffer[i] == 0xFF){
 			i++;
@@ -106,7 +105,6 @@ refind:
 	while (count != 4){
 		d->rd_data[count++] = d->buffer[index++];
 	}
-
 
 	sum = checksum(d->rd_data);
 	if (sum != d->rd_data[3]){
