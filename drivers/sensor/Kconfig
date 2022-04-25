@@ -188,6 +188,8 @@ source "drivers/sensor/nrf5/Kconfig"
 
 source "drivers/sensor/opt3001/Kconfig"
 
+source "drivers/sensor/paw3335/Kconfig"
+
 source "drivers/sensor/pms7003/Kconfig"
 
 source "drivers/sensor/qdec_nrfx/Kconfig"
