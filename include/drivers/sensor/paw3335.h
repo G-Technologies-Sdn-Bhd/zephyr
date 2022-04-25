@@ -31,12 +31,3 @@ enum sensor_config_paw3335 {
 };
 
 #endif /* ZEPHYR_INCLUDE_DRIVERS_SENSOR_PAW3335_H_ */
-
-
-
-
-
-
-
-
-
