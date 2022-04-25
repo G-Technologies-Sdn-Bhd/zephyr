@@ -77,6 +77,7 @@ static inline int dypa01_poll_data(const struct device *dev)
 
 	/* find the index of the received uart buffer since
 		we could also have consecutive 0xFF */
+refind:
 	if (d->buffer[i] == 0xFF){
 		while(d->buffer[i] == 0xFF){
 			i++;
@@ -104,7 +105,8 @@ static inline int dypa01_poll_data(const struct device *dev)
 	sum = checksum(d->rd_data);
 	if (sum != d->rd_data[3]){
 		d->data_valid = false;
-		return -EBADMSG;
+		count = 0;
+		goto refind;
 	}
 
 	d->data_valid = true;
