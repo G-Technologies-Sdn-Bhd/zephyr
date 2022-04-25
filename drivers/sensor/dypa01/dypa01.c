@@ -66,6 +66,7 @@ static inline int dypa01_poll_data(const struct device *dev)
 	int sum;
 	int count = 0;
 	int i = 0;
+	uint8_t retry = 0;
 	int index;
 
 	k_sem_reset(&d->rx_sem);
@@ -78,6 +79,13 @@ static inline int dypa01_poll_data(const struct device *dev)
 	/* find the index of the received uart buffer since
 		we could also have consecutive 0xFF */
 refind:
+	retry++;
+	
+	if (retry > 2)
+	{
+		return -EBADMSG;
+	}
+	
 	if (d->buffer[i] == 0xFF){
 		while(d->buffer[i] == 0xFF){
 			i++;
@@ -99,8 +107,6 @@ refind:
 		d->rd_data[count++] = d->buffer[index++];
 	}
 
-	// LOG_HEXDUMP_INF( d->buffer,sizeof(d->buffer),"Rd data:");
-	// LOG_HEXDUMP_INF( d->rd_data,sizeof(d->rd_data),"Rd data 2:");
 
 	sum = checksum(d->rd_data);
 	if (sum != d->rd_data[3]){
