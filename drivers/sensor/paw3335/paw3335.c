@@ -358,11 +358,6 @@ static int paw3335_init(const struct device *dev)
 	}
 		uint8_t sample;
 
-
-
-
-
-
 	return paw3335_power_up_init(dev);
 }
 
