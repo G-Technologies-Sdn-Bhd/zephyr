@@ -29,6 +29,7 @@ struct paw3335_data {
 	uint8_t data_xh;
 	uint8_t data_yl;
 	uint8_t data_yh;
+	uint8_t frame[900];
 	int16_t sample_x;
 	int16_t sample_y;
 };
@@ -90,11 +91,11 @@ static int paw3335_write(const struct device *dev, uint8_t reg_addr, uint8_t sam
 	return spi_write(data->spi, &config->spi_config, &tx);
 }
 
-
 static int paw3335_rawdata_grab(const struct device *dev, uint8_t frame[])
 {
+	struct paw3335_data *data = dev->data;
 	int i;
-	uint8_t data;
+	uint8_t buff;
 	uint8_t op_mode;
 	uint8_t pg_status;
 
@@ -106,25 +107,26 @@ static int paw3335_rawdata_grab(const struct device *dev, uint8_t frame[])
 	paw3335_write(dev, 0x55, 0x04);
 
 	do {
-		paw3335_read(dev, 0x02, &data, 1);
-		op_mode = data << 6;
+		paw3335_read(dev, 0x02, &buff, 1);
+		op_mode = buff << 6;
 	} while (op_mode != 0x00);
 
 	paw3335_write(dev, 0x58, 0xFF);
 
 	do {
-		paw3335_read(dev, 0x59, &data, 1);
-		pg_status = data & 0x40;
+		paw3335_read(dev, 0x59, &buff, 1);
+		pg_status = buff & 0x40;
 	} while (pg_status != 0x40);
 
 	for (i = 0; i < 900; i++){
 		do {
-			paw3335_read(dev, 0x59, &data, 1);
-			pg_status = data & 0x80;
+			paw3335_read(dev, 0x59, &buff, 1);
+			pg_status = buff & 0x80;
 		} while (pg_status != 0x80);
 
-		paw3335_read(dev, 0x58, &data, 1);
-		frame[i] = data & 0x7F;
+		paw3335_read(dev, 0x58, &buff, 1);
+		frame[i] = buff & 0x7F;
+		data->frame[i] = frame[i];
 	}
 
 	paw3335_write(dev, 0x55, 0x00);
@@ -136,10 +138,9 @@ static int paw3335_rawdata_grab(const struct device *dev, uint8_t frame[])
 	return 0;
 }
 
-static int paw3335_sample_fetch(const struct device *dev, enum sensor_channel chan)
+static int paw3335_burst_read(const struct device *dev, uint8_t buffer[])
 {
 	struct paw3335_data *data = dev->data;
-	uint8_t buffer[12];
 
 	paw3335_read(dev, 0x16, buffer, 12);
 	k_usleep(100);
@@ -149,6 +150,26 @@ static int paw3335_sample_fetch(const struct device *dev, enum sensor_channel ch
 	data->data_xh = buffer[3];
 	data->data_yl = buffer[4];
 	data->data_yh = buffer[5];
+
+	return 0;
+}
+
+static int paw3335_sample_fetch(const struct device *dev, enum sensor_channel chan)
+{
+	uint8_t buffer[12];
+	uint8_t frame[900];
+
+	switch (chan){
+		case SENSOR_CHAN_DELTA_XY:
+		return paw3335_burst_read(dev, buffer);
+
+		case SENSOR_CHAN_RAWDATA:
+		return paw3335_rawdata_grab(dev, frame);
+
+		default:
+		LOG_DBG("Channel not supported.");
+		return -ENOTSUP;
+	}
 
 	return 0;
 }
@@ -170,7 +191,7 @@ static int paw3335_channel_get(const struct device *dev, enum sensor_channel cha
 
 static int paw3335_set_resolution(const struct device *dev, uint8_t reso)
 {
-	//add error checking of reso
+	/* TODO: add error checking of reso */
 	return paw3335_write(dev, 0x4E, reso);
 }
 
@@ -179,6 +200,7 @@ static int paw3335_set_axis(const struct device *dev, uint8_t mask)
 	uint8_t axis;
 
 	paw3335_read(dev, 0x5B, &axis, 1);
+	/* bit masking the current value first before overwriting the register. This is specified in the datasheet */
 	axis = axis | mask;
 
 	return paw3335_write(dev, 0x5B, axis);
@@ -356,26 +378,25 @@ static int paw3335_init(const struct device *dev)
 		LOG_ERR("Could not get SPI device %s", config->spi_label);
 		return -ENODEV;
 	}
-		uint8_t sample;
 
 	return paw3335_power_up_init(dev);
 }
 
-#define PAW3335_INIT(inst)																							\
-																													\
-	static struct paw3335_data paw3335_data_##inst;																	\
-																													\
-	static const struct paw3335_config paw3335_config_##inst = {													\
-		.spi_label = DT_INST_BUS_LABEL(inst),																		\
-		.spi_config = {																								\
-			.frequency = DT_INST_PROP(inst, spi_max_frequency),														\
-			.operation = SPI_OP_MODE_MASTER | SPI_WORD_SET(8) | SPI_MODE_CPOL | SPI_MODE_CPHA | SPI_TRANSFER_MSB,	\
-		}																											\
-	};																												\
-																													\
-	DEVICE_DT_INST_DEFINE(inst, &paw3335_init, NULL,																\
-						&paw3335_data_##inst, &paw3335_config_##inst,												\
-						POST_KERNEL, CONFIG_SENSOR_INIT_PRIORITY,													\
-						&paw3335_api);																				\
+#define PAW3335_INIT(inst)																	\
+																				\
+	static struct paw3335_data paw3335_data_##inst;														\
+																				\
+	static const struct paw3335_config paw3335_config_##inst = {												\
+		.spi_label = DT_INST_BUS_LABEL(inst),														\
+		.spi_config = {																	\
+			.frequency = DT_INST_PROP(inst, spi_max_frequency),											\
+			.operation = SPI_OP_MODE_MASTER | SPI_WORD_SET(8) | SPI_MODE_CPOL | SPI_MODE_CPHA | SPI_TRANSFER_MSB,					\
+		}																		\
+	};																			\
+																				\
+	DEVICE_DT_INST_DEFINE(inst, &paw3335_init, NULL,													\
+						&paw3335_data_##inst, &paw3335_config_##inst,									\
+						POST_KERNEL, CONFIG_SENSOR_INIT_PRIORITY,									\
+						&paw3335_api);													\
 
 DT_INST_FOREACH_STATUS_OKAY(PAW3335_INIT)
