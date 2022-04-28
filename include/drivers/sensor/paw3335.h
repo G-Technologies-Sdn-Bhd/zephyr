@@ -19,6 +19,7 @@ extern "C" {
 #include <drivers/sensor.h>
 #include <device.h>
 
+/* add more config settings here */
 enum sensor_config_paw3335 {
 
 	SENSOR_CFG_AXIS_SWAP_XY,
