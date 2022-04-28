@@ -58,7 +58,7 @@ void main(void)
 		while(1){
 
 		int ret;
-		ret = sensor_sample_fetch_chan(dev, SENSOR_CHAN_ALL);
+		ret = sensor_sample_fetch_chan(dev, SENSOR_CHAN_RAWDATA);
 		if (ret < 0) {
 			printk("Could not fetch x (%d)\n", ret);
 			return;
