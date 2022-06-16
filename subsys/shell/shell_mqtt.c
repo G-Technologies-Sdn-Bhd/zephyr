@@ -642,9 +642,11 @@ static int init(const struct shell_transport *transport, const void *config,
 	}
 
 	LOG_DBG("Client ID is %s", log_strdup(sh_mqtt->device_id));
+	
+	// (void)snprintf(sh_mqtt->pub_topic, SH_MQTT_TOPIC_MAX_SIZE, "%s_tx", sh_mqtt->device_id);
+	(void)snprintf(sh_mqtt->pub_topic, SH_MQTT_TOPIC_MAX_SIZE, "rx/%s", sh_mqtt->device_id);
+	(void)snprintf(sh_mqtt->sub_topic, SH_MQTT_TOPIC_MAX_SIZE, "tx/%s", sh_mqtt->device_id);
 
-	(void)snprintf(sh_mqtt->pub_topic, SH_MQTT_TOPIC_MAX_SIZE, "%s_tx", sh_mqtt->device_id);
-	(void)snprintf(sh_mqtt->sub_topic, SH_MQTT_TOPIC_MAX_SIZE, "%s_rx", sh_mqtt->device_id);
 	LOG_INF("Logs will be published to: %s", log_strdup(sh_mqtt->pub_topic));
 	LOG_INF("Subscribing shell cmds from: %s", log_strdup(sh_mqtt->sub_topic));
 
