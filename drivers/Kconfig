@@ -123,4 +123,6 @@ source "drivers/bbram/Kconfig"
 
 source "drivers/fpga/Kconfig"
 
+rsource "flash/Kconfig"
+
 endmenu
