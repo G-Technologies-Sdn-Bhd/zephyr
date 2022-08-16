@@ -38,9 +38,6 @@ LOG_MODULE_REGISTER(spi_flash_at45, CONFIG_FLASH_LOG_LEVEL);
 #define CMD_EXIT_DPD		0xAB
 /* - Ultra-Deep Power-Down */
 #define CMD_ENTER_UDPD		0x79
-#define AT45_PAGE_WRITE_BUF1 0x82
-#define AT45_PAGE_WRITE_BUF2 0x85
-
 /* - Buffer and Page Size Configuration, "Power of 2" binary page size */
 #define CMD_BINARY_PAGE_SIZE	{ 0x3D, 0x2A, 0x80, 0xA6 }
 
@@ -59,7 +56,6 @@ LOG_MODULE_REGISTER(spi_flash_at45, CONFIG_FLASH_LOG_LEVEL);
 		.count   = ARRAY_SIZE(_buf_array), \
 	}
 
-static bool at45_buffer = true;
 struct spi_flash_at45_data {
 	const struct device *spi;
 	struct spi_cs_control spi_cs;
@@ -90,14 +86,6 @@ struct spi_flash_at45_config {
 	bool use_udpd;
 	uint8_t jedec_id[3];
 };
-
-static off_t offset_528_from_512(off_t offset)
-{
-	uint16_t npage = offset >> 9;
-	uint16_t remainder = offset & (512U - 1U);
-
-	return (npage * 528U) + remainder;
-}
 
 static const struct flash_parameters flash_at45_parameters = {
 	.write_block_size = 1,
@@ -275,17 +263,11 @@ static int spi_flash_at45_read(const struct device *dev, off_t offset,
 		return -ENODEV;
 	}
 
-	// offset = offset_528_from_512(offset);
-
 	uint8_t const op_and_addr[] = {
-		0xd2,
+		CMD_READ,
 		(offset >> 16) & 0xFF,
 		(offset >> 8)  & 0xFF,
 		(offset >> 0)  & 0xFF,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
 	};
 	const struct spi_buf tx_buf[] = {
 		{
@@ -323,20 +305,14 @@ static int perform_write(const struct device *dev, off_t offset,
 			 const void *data, size_t len)
 {
 	int err;
-	// offset = offset_528_from_512(offset);
-	// uint8_t const op_and_addr[] = {
-		// IS_ENABLED(CONFIG_SPI_FLASH_AT45_USE_READ_MODIFY_WRITE)
-		// 	? CMD_MODIFY
-		// 	: CMD_WRITE,
-		uint8_t const op_and_addr[] = {
-		// at45_buffer ? AT45_PAGE_WRITE_BUF1 : AT45_PAGE_WRITE_BUF2,
-		CMD_WRITE,
+	uint8_t const op_and_addr[] = {
+		IS_ENABLED(CONFIG_SPI_FLASH_AT45_USE_READ_MODIFY_WRITE)
+			? CMD_MODIFY
+			: CMD_WRITE,
 		(offset >> 16) & 0xFF,
 		(offset >> 8)  & 0xFF,
 		(offset >> 0)  & 0xFF,
-		
 	};
-	at45_buffer =! at45_buffer;
 	const struct spi_buf tx_buf[] = {
 		{
 			.buf = (void *)&op_and_addr,
@@ -447,7 +423,6 @@ static int perform_erase_op(const struct device *dev, uint8_t opcode,
 			    off_t offset)
 {
 	int err;
-	// offset = offset_528_from_512(offset);
 	uint8_t const op_and_addr[] = {
 		opcode,
 		(offset >> 16) & 0xFF,

@@ -146,7 +146,6 @@ void main(void)
 			return;
 		}
 	}
-
 	printk("OK\n");
 
 #if IS_ENABLED(CONFIG_PM_DEVICE)
