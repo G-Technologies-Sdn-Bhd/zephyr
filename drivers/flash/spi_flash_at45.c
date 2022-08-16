@@ -329,8 +329,7 @@ static int perform_write(const struct device *dev, off_t offset,
 		// 	? CMD_MODIFY
 		// 	: CMD_WRITE,
 		uint8_t const op_and_addr[] = {
-		// at45_buffer ? AT45_PAGE_WRITE_BUF1 : AT45_PAGE_WRITE_BUF2,
-		CMD_WRITE,
+		at45_buffer ? AT45_PAGE_WRITE_BUF1 : AT45_PAGE_WRITE_BUF2,
 		(offset >> 16) & 0xFF,
 		(offset >> 8)  & 0xFF,
 		(offset >> 0)  & 0xFF,
