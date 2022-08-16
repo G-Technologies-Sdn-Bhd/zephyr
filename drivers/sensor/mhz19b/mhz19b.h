@@ -16,7 +16,7 @@
 #define MHZ19B_TX_CMD_IDX 2
 #define MHZ19B_RX_CMD_IDX 1
 #define MHZ19B_CHECKSUM_IDX 8
-
+#define MAX_MHZ19B_RETRY_COUNT 5 
 /* Arbitrary max duration to wait for the response */
 #define MHZ19B_WAIT K_SECONDS(1)
 
