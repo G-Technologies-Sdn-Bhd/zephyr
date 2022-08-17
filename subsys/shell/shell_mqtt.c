@@ -124,9 +124,12 @@ static int wait(int timeout)
 static int get_mqtt_broker_addrinfo(void)
 {
 	int rc;
-	struct zsock_addrinfo hints = { .ai_family = AF_INET,
-					.ai_socktype = SOCK_STREAM,
-					.ai_protocol = 0 };
+	struct zsock_addrinfo hints;
+
+	(void)memset(&hints, 0, sizeof(hints));
+
+	hints.ai_family = AF_INET;
+	hints.ai_socktype = SOCK_STREAM;
 
 	if (sh_mqtt->haddr != NULL) {
 		zsock_freeaddrinfo(sh_mqtt->haddr);
