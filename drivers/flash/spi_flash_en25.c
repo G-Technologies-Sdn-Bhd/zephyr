@@ -129,42 +129,7 @@ static void acquire(const struct device *dev) { k_sem_take(&get_dev_data(dev)->l
 
 static void release(const struct device *dev) { k_sem_give(&get_dev_data(dev)->lock); }
 
-static int acquire_ext_mutex(const struct device *dev)
-{
-#ifdef CONFIG_NRFX_SPIM_EXT_MUTEX
-	int err = 0;
-	// make sure lock is acquired by trying multiple times
-	for (int i = 0; i < 5; i++) {
-		err = spi_ext_mutex_acquire(get_dev_data(dev)->spi);
-		if (err < 0) {
-			spi_ext_mutex_release(get_dev_data(dev)->spi);
-			k_sleep(K_MSEC(10));
-		} else {
-			break;
-		}
-	}
-	if (err < 0) {
-		return err;
-	}
-	LOG_DBG("Spi ext mutex acquired");
-#endif
-	return 0;
-}
 
-static int release_ext_mutex(const struct device *dev)
-{
-#ifdef CONFIG_NRFX_SPIM_EXT_MUTEX
-	int err = spi_ext_mutex_release(get_dev_data(dev)->spi);
-	if (err != 0) {
-		LOG_ERR("spi_ext_mutex_release, err: %d", err);
-		return err;
-	}
-	LOG_DBG("Spi ext mutex released");
-#endif
-	return 0;
-}
-
-#ifdef CONFIG_SPI_FLASH_EN25_JEDEC_CHECK_AT_INIT
 static int check_jedec_id(const struct device *dev)
 {
 	const struct spi_flash_en25_config *cfg = get_dev_config(dev);
@@ -202,7 +167,6 @@ static int check_jedec_id(const struct device *dev)
 
 	return 0;
 }
-#endif
 
 /*
  * Reads 1-byte Status Register
@@ -338,19 +302,11 @@ static int spi_flash_en25_read(const struct device *dev, off_t offset, void *dat
 	DEF_BUF_SET(tx_buf_set, tx_buf);
 	DEF_BUF_SET(rx_buf_set, rx_buf);
 
-	int m_err = acquire_ext_mutex(dev);
-	if (m_err) {
-		return m_err;
-	}
-
 	acquire(dev);
 	err = spi_transceive(get_dev_data(dev)->spi, &cfg->spi_cfg, &tx_buf_set, &rx_buf_set);
 	release(dev);
 
-	m_err = release_ext_mutex(dev);
-	if (m_err) {
-		return m_err;
-	}
+	
 
 	if (err != 0) {
 		LOG_ERR("SPI transaction failed with code: %d/%u", err, __LINE__);
@@ -403,11 +359,6 @@ static int spi_flash_en25_write(const struct device *dev, off_t offset, const vo
 		return -ENODEV;
 	}
 
-	int m_err = acquire_ext_mutex(dev);
-	if (m_err) {
-		return m_err;
-	}
-
 	acquire(dev);
 
 	while (len) {
@@ -430,12 +381,6 @@ static int spi_flash_en25_write(const struct device *dev, off_t offset, const vo
 	}
 
 	release(dev);
-
-	m_err = release_ext_mutex(dev);
-	if (m_err) {
-		return m_err;
-	}
-
 	return err;
 }
 
@@ -549,11 +494,6 @@ static int spi_flash_en25_erase(const struct device *dev, off_t offset, size_t s
 		return -EINVAL;
 	}
 
-	int m_err = acquire_ext_mutex(dev);
-	if (m_err) {
-		return m_err;
-	}
-
 	acquire(dev);
 
 	if (size == cfg->chip_size) {
@@ -586,11 +526,6 @@ static int spi_flash_en25_erase(const struct device *dev, off_t offset, size_t s
 	}
 
 	release(dev);
-
-	m_err = release_ext_mutex(dev);
-	if (m_err) {
-		return m_err;
-	}
 
 	return err;
 }
@@ -651,11 +586,6 @@ static int spi_flash_en25_init(const struct device *dev)
 		dev_data->spi_cs.delay = 0;
 	}
 
-	int m_err = acquire_ext_mutex(dev);
-	if (m_err) {
-		return m_err;
-	}
-
 	acquire(dev);
 
 	/* Perform reset sequence as we have seen that fetching
@@ -663,7 +593,6 @@ static int spi_flash_en25_init(const struct device *dev)
 	err = perform_reset_sequence(dev);
 	if (err != 0) {
 		LOG_ERR("perform_reset_sequence, err: %d", err);
-		release_ext_mutex(dev);
 		return err;
 	}
 
@@ -676,24 +605,14 @@ static int spi_flash_en25_init(const struct device *dev)
 	send_cmd_op(dev, CMD_EXIT_DPD, dev_config->t_exit_dpd);
 
 	/* Check jedec ID */
-#ifdef CONFIG_SPI_FLASH_EN25_JEDEC_CHECK_AT_INIT
 	err = check_jedec_id(dev);
 	if (err != 0) {
 		return err;
 	}
-#else
-	LOG_INF("SPI_FLASH_EN25_JEDEC_CHECK_AT_INIT is not set, skipping JEDEC ID check.");
-#endif
-
 	/* Place holder for function call, we might need it in future. */
 	// err = disable_block_protect(dev);
 
 	release(dev);
-
-	m_err = release_ext_mutex(dev);
-	if (m_err) {
-		return m_err;
-	}
 
 	return err;
 }
@@ -704,32 +623,22 @@ static int spi_flash_en25_pm_control(const struct device *dev, enum pm_device_ac
 	const struct spi_flash_en25_config *dev_config = get_dev_config(dev);
 
 	int err = 0;
-	int m_err = acquire_ext_mutex(dev);
-	if (m_err) {
-		return m_err;
-	}
-	acquire(dev);
-
 	switch (action) {
 	case PM_DEVICE_ACTION_RESUME:
+		acquire(dev);
 		send_cmd_op(dev, CMD_EXIT_DPD, dev_config->t_exit_dpd);
+		release(dev);
 		break;
 
 	case PM_DEVICE_ACTION_SUSPEND:
+		acquire(dev);
 		send_cmd_op(dev, CMD_ENTER_DPD, dev_config->t_enter_dpd);
+		release(dev);
 		break;
 
 	default:
 		err = -ENOTSUP;
 	}
-
-	release(dev);
-
-	m_err = release_ext_mutex(dev);
-	if (m_err) {
-		return m_err;
-	}
-
 	return err;
 }
 #endif /* IS_ENABLED(CONFIG_PM_DEVICE) */
