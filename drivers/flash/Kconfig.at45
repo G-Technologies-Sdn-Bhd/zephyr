@@ -34,4 +34,9 @@ config SPI_FLASH_AT45_INIT_PRIORITY
 	  Device driver initialization priority.
 	  SPI driver needs to be initialized before this one.
 
+config AUTO_PAGE_RW
+	bool "write-read using auto page"
+	default n
+	help
+	 instead using byte/page write will be using auto page function. 
 endif # SPI_FLASH_AT45
