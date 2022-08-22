@@ -336,8 +336,10 @@ static int perform_write(const struct device *dev, off_t offset,
 			 const void *data, size_t len)
 {
 	int err;
-	uint8_t     opcode;
+	
 	#if IS_ENABLED(CONFIG_AUTO_PAGE_RW)
+	uint8_t     opcode;
+	
 	uint8_t const buffer_xfer[] = {
 		opcode = !_at45_buffer ?
 		CMD_BUFFER1_XFER:
