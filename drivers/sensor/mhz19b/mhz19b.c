@@ -51,6 +51,8 @@ static const uint8_t mhz19b_cmds[MHZ19B_CMD_IDX_MAX][MHZ19B_BUF_LEN] = {
 	},
 };
 
+static K_MUTEX_DEFINE(co2_mutex);
+
 static void mhz19b_uart_flush(const struct device *uart_dev)
 {
 	uint8_t c;
@@ -120,32 +122,33 @@ static inline int mhz19b_poll_data(const struct device *dev, enum mhz19b_cmd_idx
 	uint8_t checksum;
 	int ret;
 	int retry_count = 0;
-retry:
+// retry:
+	(void)k_mutex_lock(&co2_mutex, K_FOREVER);
 	ret = mhz19b_send_cmd(dev, cmd_idx, true);
 	if (ret < 0 ) {
-		retry_count++;
-		if(retry_count <MAX_MHZ19B_RETRY_COUNT)
-		{
-		goto retry;
-		}
-		else
-		{
+		// retry_count++;
+		// if(retry_count <MAX_MHZ19B_RETRY_COUNT)
+		// {
+		// goto retry;
+		// }
+		// else
+		// {
 			return ret;
 		}
-	}
+	// }
 
 	checksum = mhz19b_checksum(data->rd_data);
 	if (checksum != data->rd_data[MHZ19B_CHECKSUM_IDX]) {
 		LOG_DBG("Checksum mismatch: 0x%x != 0x%x", checksum,
 			data->rd_data[MHZ19B_CHECKSUM_IDX]);
-		if(retry_count <MAX_MHZ19B_RETRY_COUNT)
-		{
-			goto retry;
-		}
-		else
-		{
+		// if(retry_count <MAX_MHZ19B_RETRY_COUNT)
+		// {
+		// 	goto retry;
+		// }
+		// else
+		// {
 			return -EBADMSG;
-		}
+		// }
 	}
 
 	switch (cmd_idx) {
@@ -161,7 +164,7 @@ retry:
 	default:
 		return -EINVAL;
 	}
-
+	(void)k_mutex_unlock(&co2_mutex);
 	return 0;
 }
 
