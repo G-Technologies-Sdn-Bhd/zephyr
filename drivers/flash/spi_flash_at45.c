@@ -15,11 +15,11 @@ LOG_MODULE_REGISTER(spi_flash_at45, CONFIG_FLASH_LOG_LEVEL);
 
 /* AT45 commands used by this driver: */
 /* - Continuous Array Read (Low Power Mode) */
-#define CMD_READ		0x01
+#define CMD_READ		0x0B
 /* - Main Memory Byte/Page Program through Buffer 1 without Built-In Erase */
 #define CMD_WRITE		0x02
 /* - Read-Modify-Write */
-#define CMD_MODIFY		0x58
+#define CMD_MODIFY		0x82
 /* - Manufacturer and Device ID Read */
 #define CMD_READ_ID		0x9F
 /* - Status Register Read */
@@ -38,20 +38,6 @@ LOG_MODULE_REGISTER(spi_flash_at45, CONFIG_FLASH_LOG_LEVEL);
 #define CMD_EXIT_DPD		0xAB
 /* - Ultra-Deep Power-Down */
 #define CMD_ENTER_UDPD		0x79
-
-#define CMD_BUFFER1_XFER   0x53
-
-#define CMD_BUFFER2_XFER   0x55
-
-#define CMD_MAIN_MEMORY_BUF1_PROG 0x82
-
-#define CMD_MAIN_MEMORY_BUF2_PROG 0x85
-
-#define CMD_AUTO_PAGE_REWRITE_BUF1 0x58
-#define CMD_AUTO_PAGE_REWRITE_BUF2 0x59
-
-#define CMD_READ_PAGE		0xD2
-
 /* - Buffer and Page Size Configuration, "Power of 2" binary page size */
 #define CMD_BINARY_PAGE_SIZE	{ 0x3D, 0x2A, 0x80, 0xA6 }
 
@@ -70,7 +56,6 @@ LOG_MODULE_REGISTER(spi_flash_at45, CONFIG_FLASH_LOG_LEVEL);
 		.count   = ARRAY_SIZE(_buf_array), \
 	}
 
-static bool _at45_buffer =true;
 struct spi_flash_at45_data {
 	const struct device *spi;
 	struct spi_cs_control spi_cs;
@@ -101,15 +86,7 @@ struct spi_flash_at45_config {
 	bool use_udpd;
 	uint8_t jedec_id[3];
 };
-#define DATAFLASH_PAGE_SIZE_528    0x0210
-#define DATAFLASH_PAGE_BIT_528     10
-uint32_t translate_address(off_t addr)
-{
-		uint32_t address = addr;
-		 address = ((addr / DATAFLASH_PAGE_SIZE_528) << DATAFLASH_PAGE_BIT_528) |
-                  (addr % DATAFLASH_PAGE_SIZE_528);
-	return address;
-}
+
 static const struct flash_parameters flash_at45_parameters = {
 	.write_block_size = 1,
 	.erase_value = 0xff,
@@ -229,6 +206,7 @@ static int wait_until_ready(const struct device *dev)
 	do {
 		err = read_status_register(dev, &status);
 	} while (err == 0 && !(status & STATUS_REG_LSB_RDY_BUSY_BIT));
+
 	return err;
 }
 
@@ -284,22 +262,14 @@ static int spi_flash_at45_read(const struct device *dev, off_t offset,
 	if (!is_valid_request(offset, len, cfg->chip_size)) {
 		return -ENODEV;
 	}
-#if IS_ENABLED(CONFIG_AUTO_PAGE_RW)
-	uint8_t const op_and_addr[] = {
-		CMD_READ_PAGE,
-		(offset >> 16) & 0xFF,
-		(offset >> 8)  & 0xFF,
-		(offset >> 0)  & 0xFF,
-		0x00,0x00,0x00,0x00,
-	};
-#else
+
 	uint8_t const op_and_addr[] = {
 		CMD_READ,
 		(offset >> 16) & 0xFF,
 		(offset >> 8)  & 0xFF,
 		(offset >> 0)  & 0xFF,
+		0xFF,	// 1 dummy byte as per datasheet
 	};
-#endif
 	const struct spi_buf tx_buf[] = {
 		{
 			.buf = (void *)&op_and_addr,
@@ -336,109 +306,12 @@ static int perform_write(const struct device *dev, off_t offset,
 			 const void *data, size_t len)
 {
 	int err;
-	
-	#if IS_ENABLED(CONFIG_AUTO_PAGE_RW)
-	uint8_t     opcode;
-	
-	uint8_t const buffer_xfer[] = {
-		opcode = !_at45_buffer ?
-		CMD_BUFFER1_XFER:
-		CMD_BUFFER2_XFER,
+	uint8_t const buf1_to_main[] = {
+		0x53,	// Read the flash content to buffer 1
 		(offset >> 16) & 0xFF,
 		(offset >> 8)  & 0xFF,
 		(offset >> 0)  & 0xFF,
-
 	};
-
-	uint8_t const page_program[] = {
-		opcode = !_at45_buffer ? 
-		CMD_MAIN_MEMORY_BUF1_PROG:
-		CMD_MAIN_MEMORY_BUF2_PROG,
-		(offset >> 16) & 0xFF,
-		(offset >> 8)  & 0xFF,
-		(offset >> 0)  & 0xFF,
-
-	};
-
-		uint8_t const page_rewrite[] = {
-		opcode = !_at45_buffer ?
-		CMD_AUTO_PAGE_REWRITE_BUF1:
-		CMD_AUTO_PAGE_REWRITE_BUF2,
-		(offset >> 16) & 0xFF,
-		(offset >> 8)  & 0xFF,
-		(offset >> 0)  & 0xFF,
-
-	};
-
-	 _at45_buffer = !_at45_buffer;
-	
-	const struct spi_buf tx_buffer_xfer[] = {
-		{
-			.buf = (void *)&buffer_xfer,
-			.len = sizeof(buffer_xfer),
-		},
-		{
-			.buf = (void *)data,
-			.len = len,
-		}
-	};
-
-	const struct spi_buf tx_page_program[] = {
-		{
-			.buf = (void *)&page_program,
-			.len = sizeof(page_program),
-		},
-		{
-			.buf = (void *)data,
-			.len = len,
-		}
-	};
-
-	const struct spi_buf tx_page_rewrite[] = {
-		{
-			.buf = (void *)&page_rewrite,
-			.len = sizeof(page_rewrite),
-		},
-		{
-			.buf = (void *)data,
-			.len = len,
-		}
-	};
-
-	DEF_BUF_SET(tx_buf_set_buffer_xfer, tx_buffer_xfer);
-	DEF_BUF_SET(tx_buf_set_page_program, tx_page_program);
-	DEF_BUF_SET(tx_buf_set_page_rewrite, tx_page_rewrite);
-
-	err = spi_write(get_dev_data(dev)->spi,
-			&get_dev_config(dev)->spi_cfg,
-			&tx_buf_set_buffer_xfer);
-	if (err != 0) {
-		LOG_ERR("SPI transaction failed with code: %d/%u",
-			err, __LINE__);
-	} else {
-		err = wait_until_ready(dev);
-	}
-
-	err = spi_write(get_dev_data(dev)->spi,
-		&get_dev_config(dev)->spi_cfg,
-		&tx_buf_set_page_program);
-	if (err != 0) {
-		LOG_ERR("SPI transaction failed with code: %d/%u",
-			err, __LINE__);
-	} else {
-		err = wait_until_ready(dev);
-	}
-
-	err = spi_write(get_dev_data(dev)->spi,
-		&get_dev_config(dev)->spi_cfg,
-		&tx_buf_set_page_rewrite);
-	if (err != 0) {
-		LOG_ERR("SPI transaction failed with code: %d/%u",
-			err, __LINE__);
-	} else {
-		err = wait_until_ready(dev);
-	}
-	#else
 	uint8_t const op_and_addr[] = {
 		IS_ENABLED(CONFIG_SPI_FLASH_AT45_USE_READ_MODIFY_WRITE)
 			? CMD_MODIFY
@@ -446,6 +319,12 @@ static int perform_write(const struct device *dev, off_t offset,
 		(offset >> 16) & 0xFF,
 		(offset >> 8)  & 0xFF,
 		(offset >> 0)  & 0xFF,
+	};
+	const struct spi_buf tx_buf0[] = {
+		{
+			.buf = (void *)&buf1_to_main,
+			.len = sizeof(buf1_to_main),
+		},
 	};
 	const struct spi_buf tx_buf[] = {
 		{
@@ -457,6 +336,21 @@ static int perform_write(const struct device *dev, off_t offset,
 			.len = len,
 		}
 	};
+
+#if IS_ENABLED(CONFIG_SPI_FLASH_AT45_USE_READ_MODIFY_WRITE)
+	DEF_BUF_SET(tx_buf_set0, tx_buf0);
+	err = spi_write(get_dev_data(dev)->spi,
+			&get_dev_config(dev)->spi_cfg,
+			&tx_buf_set0);
+	if (err != 0) {
+		LOG_ERR("SPI transaction failed with code: %d/%u",
+			err, __LINE__);
+		return -EIO;
+	} else {
+		err = wait_until_ready(dev);
+	}
+#endif
+
 	DEF_BUF_SET(tx_buf_set, tx_buf);
 
 	err = spi_write(get_dev_data(dev)->spi,
@@ -468,9 +362,10 @@ static int perform_write(const struct device *dev, off_t offset,
 	} else {
 		err = wait_until_ready(dev);
 	}
-	#endif
+
 	return (err != 0) ? -EIO : 0;
 }
+
 static int spi_flash_at45_write(const struct device *dev, off_t offset,
 				const void *data, size_t len)
 {
@@ -498,8 +393,8 @@ static int spi_flash_at45_write(const struct device *dev, off_t offset,
 		if (chunk_len > (current_page_end - offset)) {
 			chunk_len = (current_page_end - offset);
 		}
-		err = perform_write(dev, offset, data, chunk_len);
 
+		err = perform_write(dev, offset, data, chunk_len);
 		if (err != 0) {
 			break;
 		}
