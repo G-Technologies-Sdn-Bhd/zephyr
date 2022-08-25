@@ -102,32 +102,34 @@ static inline int mhz19b_poll_data(const struct device *dev, const enum mhz19b_c
 	uint8_t checksum;
 	int ret;
 	int retry_count = 0;
-// retry:
+retry:
 	(void)k_mutex_lock(&co2_mutex, K_FOREVER);
 	ret = mhz19b_send_cmd(dev, cmd_idx, true);
 	if (ret < 0 ) {
-		// retry_count++;
-		// if(retry_count <MAX_MHZ19B_RETRY_COUNT)
-		// {
-		// goto retry;
-		// }
-		// else
-		// {
+		retry_count++;
+		if(retry_count <MAX_MHZ19B_RETRY_COUNT)
+		{
+			LOG_WRN("RETRY");
+		goto retry;
+		}
+		else
+		{
 			return ret;
-		// }
+		}
 	}
 
 	checksum = mhz19b_checksum(data->rd_data);
 	if (checksum != data->rd_data[MHZ19B_CHECKSUM_IDX]) {
 		data->data_valid = false;
-		// if(retry_count <MAX_MHZ19B_RETRY_COUNT)
-		// {
-		// 	goto retry;
-		// }
-		// else
-		// {
+		if(retry_count <MAX_MHZ19B_RETRY_COUNT)
+		{
+			goto retry;
+		}
+		else
+		{
+			LOG_WRN("CHECKSUM ERROR");
 			return -EBADMSG;
-		// }
+		}
 	}
 
 	data->data_valid = true;
@@ -292,6 +294,8 @@ static void mhz19b_uart_isr(const struct device *uart_dev, void *user_data)
 
 		if (data->xfer_bytes == MHZ19B_BUF_LEN) {
 			data->xfer_bytes = 0;
+			// LOG_HEXDUMP_INF(&data->rd_data, sizeof(data->rd_data), "RX DATA:");
+
 			uart_irq_rx_disable(uart_dev);
 			k_sem_give(&data->rx_sem);
 			if (data->has_rsp) {
@@ -306,6 +310,7 @@ static void mhz19b_uart_isr(const struct device *uart_dev, void *user_data)
 				       MHZ19B_BUF_LEN - data->xfer_bytes);
 
 		if (data->xfer_bytes == MHZ19B_BUF_LEN) {
+			// LOG_HEXDUMP_INF(&mhz19b_cmds[data->cmd_idx], sizeof(mhz19b_cmds[data->cmd_idx]), "TRANFERDATA:");
 			data->xfer_bytes = 0;
 			uart_irq_tx_disable(uart_dev);
 			if (!data->has_rsp) {
