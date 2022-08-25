@@ -122,33 +122,33 @@ static inline int mhz19b_poll_data(const struct device *dev, enum mhz19b_cmd_idx
 	uint8_t checksum;
 	int ret;
 	int retry_count = 0;
-// retry:
+retry:
 	(void)k_mutex_lock(&co2_mutex, K_FOREVER);
 	ret = mhz19b_send_cmd(dev, cmd_idx, true);
 	if (ret < 0 ) {
-		// retry_count++;
-		// if(retry_count <MAX_MHZ19B_RETRY_COUNT)
-		// {
-		// goto retry;
-		// }
-		// else
-		// {
+		retry_count++;
+		if(retry_count <MAX_MHZ19B_RETRY_COUNT)
+		{
+		goto retry;
+		}
+		else
+		{
 			return ret;
 		}
-	// }
+	}
 
 	checksum = mhz19b_checksum(data->rd_data);
 	if (checksum != data->rd_data[MHZ19B_CHECKSUM_IDX]) {
 		LOG_DBG("Checksum mismatch: 0x%x != 0x%x", checksum,
 			data->rd_data[MHZ19B_CHECKSUM_IDX]);
-		// if(retry_count <MAX_MHZ19B_RETRY_COUNT)
-		// {
-		// 	goto retry;
-		// }
-		// else
-		// {
+		if(retry_count <MAX_MHZ19B_RETRY_COUNT)
+		{
+			goto retry;
+		}
+		else
+		{
 			return -EBADMSG;
-		// }
+		}
 	}
 
 	switch (cmd_idx) {
