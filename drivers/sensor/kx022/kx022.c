@@ -339,11 +339,9 @@ static int kx022_sample_fetch_accel_xyz(const struct device *dev)
 		LOG_DBG("%s: Failed to read %s: %d", dev->name, "sample", ret);
 		return ret;
 	}
-
 	data->sample_x = (int16_t)sys_get_le16(&buf[0]);
 	data->sample_y = (int16_t)sys_get_le16(&buf[2]);
 	data->sample_z = (int16_t)sys_get_le16(&buf[4]);
-
 	return 0;
 }
 
@@ -416,7 +414,7 @@ static inline void kx022_convert(struct sensor_value *val, int raw_val, float ga
 
 	/* Gain is in mg/LSB */
 	/* Convert to m/s^2 */
-	dval = ((int64_t)raw_val * gain * SENSOR_G) / 1000;
+	dval = ((int64_t)raw_val * gain * SENSOR_G) /100 ;//1000;
 	val->val1 = dval / 1000000LL;
 	val->val2 = dval % 1000000LL;
 }
@@ -543,6 +541,9 @@ static int kx022_init(const struct device *dev)
 		LOG_DBG("%s: Failed to update %s: %d", dev->name, "ODR", ret);
 		return ret;
 	}
+
+	ret = data->hw_tf->update_reg(dev, KX022_REG_CNTL3, KX022_MASK_CNTL3_OWUF,
+				0x06);
 
 #ifdef CONFIG_KX022_TRIGGER
 	ret = kx022_trigger_init(dev);
