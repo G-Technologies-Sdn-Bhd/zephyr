@@ -332,7 +332,6 @@ static int kx022_sample_fetch_accel_xyz(const struct device *dev)
 {
 	struct kx022_data *data = dev->data;
 	uint8_t buf[6];
-	uint8_t buf1[6];
 	int ret;
 
 	ret = data->hw_tf->read_data(dev, KX022_REG_XOUT_L, buf, sizeof(buf));
@@ -343,10 +342,6 @@ static int kx022_sample_fetch_accel_xyz(const struct device *dev)
 	data->sample_x = (int16_t)sys_get_le16(&buf[0]);
 	data->sample_y = (int16_t)sys_get_le16(&buf[2]);
 	data->sample_z = (int16_t)sys_get_le16(&buf[4]);
-
-	// printk("high filter x %d \t%d\t%d\r\n",(int16_t)sys_get_le16(&buf1[0]),
-	// 				(int16_t)sys_get_le16(&buf1[2]),
-	// 				(int16_t)sys_get_le16(&buf1[4]));
 	return 0;
 }
 
@@ -419,7 +414,7 @@ static inline void kx022_convert(struct sensor_value *val, int raw_val, float ga
 
 	/* Gain is in mg/LSB */
 	/* Convert to m/s^2 */
-	dval = ((int64_t)raw_val * gain * SENSOR_G) / 1000;
+	dval = ((int64_t)raw_val * gain * SENSOR_G) /100 ;//1000;
 	val->val1 = dval / 1000000LL;
 	val->val2 = dval % 1000000LL;
 }
