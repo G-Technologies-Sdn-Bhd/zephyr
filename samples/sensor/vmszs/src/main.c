@@ -111,6 +111,8 @@ struct k_sem drdy_sem;
 static struct test_context
 {
 	struct k_work_delayable angle_sample_work;
+	struct k_work isr_sample_work;
+
 	double_t angle;
 	double_t angleX;
 	double_t angleY;
@@ -262,66 +264,159 @@ int config_init(void)
 	return 0;
 }
 
+// void accel_rdry_handler(void)
+// {
+// 	int ret;
+// 	static int i = 0;
+// 	struct sensor_value axis[3];
+// 	const struct device *sensor = device_get_binding("KX022");
+// 	static int k;
+// 	static float tv =0,time,dt =0,test;
+// 	ret =  sensor_sample_fetch_chan(sensor, SENSOR_CHAN_ACCEL_XYZ);
+
+// 	if (ret == 0) {
+// 		ret = sensor_channel_get(sensor, SENSOR_CHAN_ACCEL_XYZ, axis);
+// 	}
+
+// 	time = (k_uptime_get_32()-dt);
+
+// 	v[0] = (time*(sensor_value_to_double(&axis[0])));
+// 	// v[1] = (time*(sensor_value_to_double(&axis[1])));
+// 	// v[2] = (time*(sensor_value_to_double(&axis[2])));
+// 	v[1] = 	pow(sensor_value_to_double(&axis[0]),2)
+// 		+
+// 		pow(sensor_value_to_double(&axis[1]),2)
+// 		+
+// 		pow(sensor_value_to_double(&axis[2]) - 9.8 ,2);
+
+// 	v[2] = sqrt(v[1])/(time*MSEC_PER_SEC);
+
+// 	// v[1] =(sensor_value_to_double(&axis[1])*9806.65)/314.16;
+// 	// v[0] =(sensor_value_to_double(&axis[0])*980665)/314.16;
+// 	// test =(sensor_value_to_double(&axis[2])*9806.65)/314.16;
+// 	// v[2] = (v[2]  *9806.65)/314.16;
+// 	// if(fabsf(v[1])>fabsf(test))
+// 	// {
+// 	// 	test = v[1];
+// 	// }
+// 	// printf("/*VX:%f\tVY:%f\tVZ:%f\tV2:%fmm/s\tdiff:%f*/\r\n",
+// 	// sqrt(pow(sensor_value_to_double(&axis[0]),2) /(time*MSEC_PER_SEC)),
+// 	// sqrt(pow(sensor_value_to_double(&axis[1]),2) /(time*MSEC_PER_SEC)),
+// 	// sqrt(pow(sensor_value_to_double(&axis[2]) - 9.8,2) /(time*MSEC_PER_SEC)),
+// 	// v[2]*1000,v[2]*1000 -test);
+
+
+// 	// printf("vx :%f\tvy:%f\tvz:%f\r\n",ctx.v_peak[0],ctx.v_peak[1],ctx.v_peak[2]);
+// 	test = v[2] *1000;
+// 	dt = k_uptime_get_32();
+// 	drdy.x[i] = (int)(sensor_value_to_double(&axis[0]) *10000);
+// 	drdy.y[i] = (int)(sensor_value_to_double(&axis[1]) *10000);
+// 	drdy.z[i] = (int)(sensor_value_to_double(&axis[2]) *10000);
+// 	drdy.timestamp = k_uptime_get_32();
+// 	i++;
+// 	if( i == DATA_READY_BUFF_SIZE )
+// 	{
+// 		memcpy(&xfer_data,&drdy,sizeof(drdy));
+// 		xfer_drdy = true;
+// 		i = 0;
+// 	}
+// }
+double mms2_convert(double val)
+{
+	// val *= 1000;
+	/*convert m/s2 to mm/s*/
+	val = (val * 0.02) * 1000;
+	return val; //(val / FREQUNCY);
+}
 void accel_rdry_handler(void)
 {
 	int ret;
-	static int i = 0;
 	struct sensor_value axis[3];
 	const struct device *sensor = device_get_binding("KX022");
-	static int k;
-	static float tv =0,time,dt =0,test;
+	double accel,x,y,z,data[3],d[3];
+	static double data2[3];
+	static int32_t last_time;
+	int32_t time;
+	double dv,ddv;
+	static double v_old ,v,vmax;
+	static bool i;
+	time = k_uptime_get_32();
 	ret =  sensor_sample_fetch_chan(sensor, SENSOR_CHAN_ACCEL_XYZ);
 
 	if (ret == 0) {
 		ret = sensor_channel_get(sensor, SENSOR_CHAN_ACCEL_XYZ, axis);
 	}
-
-	time = (k_uptime_get_32()-dt);
-
-	v[0] = (time*(sensor_value_to_double(&axis[0])));
-	// v[1] = (time*(sensor_value_to_double(&axis[1])));
-	// v[2] = (time*(sensor_value_to_double(&axis[2])));
-	v[1] = 	pow(sensor_value_to_double(&axis[0]),2)
-		+
-		pow(sensor_value_to_double(&axis[1]),2)
-		+
-		pow(sensor_value_to_double(&axis[2]) - 9.8 ,2);
-
-	v[2] = sqrt(v[1])/(time*MSEC_PER_SEC);
-
-	// v[1] =(sensor_value_to_double(&axis[1])*9806.65)/314.16;
-	// v[0] =(sensor_value_to_double(&axis[0])*980665)/314.16;
-	// test =(sensor_value_to_double(&axis[2])*9806.65)/314.16;
-	// v[2] = (v[2]  *9806.65)/314.16;
-	// if(fabsf(v[1])>fabsf(test))
-	// {
-	// 	test = v[1];
-	// }
-	// printf("/*VX:%f\tVY:%f\tVZ:%f\tV2:%fmm/s\tdiff:%f*/\r\n",
-	// sqrt(pow(sensor_value_to_double(&axis[0]),2) /(time*MSEC_PER_SEC)),
-	// sqrt(pow(sensor_value_to_double(&axis[1]),2) /(time*MSEC_PER_SEC)),
-	// sqrt(pow(sensor_value_to_double(&axis[2]) - 9.8,2) /(time*MSEC_PER_SEC)),
-	// v[2]*1000,v[2]*1000 -test);
-
-
-	// printf("vx :%f\tvy:%f\tvz:%f\r\n",ctx.v_peak[0],ctx.v_peak[1],ctx.v_peak[2]);
-	test = v[2] *1000;
-	dt = k_uptime_get_32();
-	drdy.x[i] = (int)(sensor_value_to_double(&axis[0]) *10000);
-	drdy.y[i] = (int)(sensor_value_to_double(&axis[1]) *10000);
-	drdy.z[i] = (int)(sensor_value_to_double(&axis[2]) *10000);
-	drdy.timestamp = k_uptime_get_32();
-	i++;
-	if( i == DATA_READY_BUFF_SIZE )
+	
+	data[0] = mms2_convert(sensor_value_to_double(&axis[0]));
+	data[1] = mms2_convert(sensor_value_to_double(&axis[1]));
+	data[2] = mms2_convert(sensor_value_to_double(&axis[2]));
+	
+	d[0] = data2[0] - data[0];
+	d[1] = data2[1] - data[1];
+	d[2] = data2[2] - data[2];
+	
+	data2[0] = data[0];
+	data2[1] = data[1];
+	data2[2] = data[2];
+	
+	x= pow(data[0],2);
+	y =pow(data[1],2);
+	z =pow(data[2],2);
+	
+	accel = sqrt( x+y+z);
+	
+	dv = accel ;
+	
+	ddv = dv -v_old;
+		
+		if(fabsf(ddv) > vmax && i == true)
+		{
+			vmax = fabsf(ddv);
+		}
+		if(i == false)
+		{
+			i = true;
+		}
+	if (fabsf(ddv) > 5)
 	{
-		memcpy(&xfer_data,&drdy,sizeof(drdy));
-		xfer_drdy = true;
-		i = 0;
+		printf("Velocity at 50hz %.4f x %.4f mm/s y %.4f mm/s z %.4f mm/s\r\n",ddv,d[0],d[1],d[2]);
 	}
+	
+	last_time =  time;
+}	
+static int32_t count;
+void isr_work(struct k_work *work)
+{
+	// if(count ==)
 }
 void accel_motion_handler(void)
 {
-	printf("Motion detected\r\n");
+	static uint8_t motion_flag;
+	static uint32_t time;
+	uint32_t t_minus;
+
+	// k_work_reschedule(&ctx.isr_sample_work,K_SECONDS(2);
+	// switch (motion_flag)
+	// {
+	// 	case 0:
+	// 	time = k_uptime_get_32();
+	// 	printf("case 0\r\n");
+	// 	motion_flag = 1;
+	// 	k_work_reschedule(&ctx.isr_sample_work,K_SECONDS(2);
+	// 	break;
+		
+	// 	case 1:
+	// 	t_minus =k_uptime_get_32() -time;
+	// 	printf("tim %d\r\n",t_minus);
+	// 		if(t_minus < 2000)
+	// 		{
+				printf("case 1\r\n");
+	// 			motion_flag = 1;
+	// 		}
+	// 		time= k_uptime_get_32();
+	// 	break;
+
+	// }
 }
 double angle_cal(struct sensor_value *axis)
 {
@@ -769,39 +864,42 @@ int main(void)
 	trig.type = SENSOR_TRIG_DATA_READY;
 	ctx.v_1st = false;
 
-	trig_motion.type = SENSOR_TRIG_KX022_MOTION;
+	// trig_motion.type = SENSOR_TRIG_KX022_MOTION;
 
-	button_init();
+	// button_init();
 	memset(&ctx.v_peak,0,sizeof(ctx.v_peak));
 
 	rc = sensor_trigger_set(sensor, &trig, accel_rdry_handler);
 
-	rc = sensor_trigger_set(sensor1, &trig_motion, accel_motion_handler);
+	// rc = sensor_trigger_set(sensor1, &trig_motion, accel_motion_handler);
 
-	config_init();
+	// config_init();
 
-	k_timer_init(&trigger_timer,accel_timer_handler,NULL);
-	k_timer_start(&trigger_timer,K_MSEC(ACCEL_DEF_TIMER),K_MSEC(ACCEL_DEF_TIMER));
+	// k_timer_init(&trigger_timer,accel_timer_handler,NULL);
+	// k_timer_start(&trigger_timer,K_MSEC(ACCEL_DEF_TIMER),K_MSEC(ACCEL_DEF_TIMER));
 
 	// ring_buf_init(&a_rb,sizeof(a_rb.buffer),a_rb.buffer);
 
-	k_work_init_delayable(&ctx.angle_sample_work,accel_work);
-	k_work_reschedule(&ctx.angle_sample_work,K_NO_WAIT);
+	// k_work_init_delayable(&ctx.angle_sample_work,accel_work);
+	// k_work_reschedule(&ctx.angle_sample_work,K_NO_WAIT);
+	k_work_init(&ctx.isr_sample_work,isr_work);
+	k_work_reschedule(&ctx.isr_sample_work,K_NO_WAIT);
+	
 
 	// k_sem_init(&drdy_sem,0,1);
 
-	TURN_DO_(fan_switch, _ON);
+	// TURN_DO_(fan_switch, _ON);
 
 
 	while(1)
 	{
-		crc =modbus_test(4,0x0000,0x0001);
+		// crc =modbus_test(4,0x0000,0x0001);
 
-	printf("crc %x\r\c",crc);
+	// printf("crc %x\r\c",crc);
 
 			// sound();
 			// sht3x();
-			accel_sample();
+			// accel_sample();
 
 		// if ((fabs(ctx.medianX) <0.05))
 		// 	{
@@ -822,33 +920,33 @@ int main(void)
 		// // // 	{
 		// // // 		ctx.medianX = lastmedX;
 		// // // 	}
-		double_t a,b,c;
-		a =fabs(ctx.medianX);
-		b = fabs(lastmedX);
-		c = a-b;
+		// double_t a,b,c;
+		// a =fabs(ctx.medianX);
+		// b = fabs(lastmedX);
+		// c = a-b;
 
-		if ((fabs(c)>ANGLE_OFFSET))
-		{
-			mbuff[0] =round_2up(ctx.medianX);
-		}
+		// if ((fabs(c)>ANGLE_OFFSET))
+		// {
+		// 	mbuff[0] =round_2up(ctx.medianX);
+		// }
 
-		a =fabs(ctx.medianY);
-		b = fabs(lastmedY);
-		c = a-b;
+		// a =fabs(ctx.medianY);
+		// b = fabs(lastmedY);
+		// c = a-b;
 
-		 if((fabs(c)>ANGLE_OFFSET))
-		{
-			mbuff[1] = round_2up(ctx.medianY);
-		}
+		//  if((fabs(c)>ANGLE_OFFSET))
+		// {
+		// 	mbuff[1] = round_2up(ctx.medianY);
+		// }
 
-		a =fabs(ctx.medianZ);
-		b = fabs(lastmedZ);
-		c = a-b;
+		// a =fabs(ctx.medianZ);
+		// b = fabs(lastmedZ);
+		// c = a-b;
 
-		if((fabs(c)>ANGLE_OFFSET))
-			{
-				mbuff[2] = round_2up(ctx.medianZ);
-			}
+		// if((fabs(c)>ANGLE_OFFSET))
+		// 	{
+		// 		mbuff[2] = round_2up(ctx.medianZ);
+		// 	}
 
 
 
@@ -878,7 +976,7 @@ int main(void)
 		// 	lastmedX =ctx.medianX;
 		// 	lastmedY =ctx.medianY;
 		// 	lastmedZ = ctx.medianZ;
-			// k_sleep(K_MSEC(500));
+			k_sleep(K_MSEC(500));
 		// }
 	}
 }
