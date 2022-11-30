@@ -76,7 +76,7 @@ static const char TIME_STRING_FORMAT[] = "\"yy/MM/dd,hh:mm:ss?zz\"";
 #define QUARTER_HOUR_RANGE 0, 96
 #define SECONDS_PER_QUARTER_HOUR (15 * 60)
 #define SIZE_OF_NUL 1
-
+static int rssi;
 /* Modem network registration state */
 enum network_state {
 	GSM_NOT_REGISTERED,
@@ -99,7 +99,7 @@ static struct gsm_modem {
 	struct modem_iface_uart_data gsm_data;
 	struct k_work_delayable gsm_configure_work;
 	char gsm_rx_rb_buf[PPP_MRU * 3];
-
+	int rssi;
 	uint8_t *ppp_recv_buf;
 	size_t ppp_recv_buf_len;
 
@@ -939,6 +939,11 @@ static void rssi_handler(struct k_work *work)
 	gsm_ppp_unlock(gsm);
 }
 
+int get_rssi(const struct device *dev)
+{
+	struct gsm_modem *gsm = dev->data;
+	return  *gsm->context.data_rssi;
+}
 static void gsm_finalize_connection(struct k_work *work)
 {
 	int ret = 0;
@@ -1115,7 +1120,6 @@ attaching:
 	}
 
 	LOG_DBG("modem RSSI: %d, %s", *gsm->context.data_rssi, "enable PPP");
-
 	ret = modem_cmd_handler_setup_cmds(&gsm->context.iface,
 					   &gsm->context.cmd_handler,
 					   connect_cmds,
