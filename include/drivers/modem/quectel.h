@@ -120,7 +120,7 @@ int quectel_gnss_disable(void);
  */
 int quectel_get_qlbs(const struct device *dev, struct qlbs_coordinates *coordinates,
 		     k_timeout_t timeout);
-
+int get_rssi(const struct device *dev);
 void quectel_register_gnss_callback(const struct device *dev, quectel_gnss_cb cb);
 
 #endif /* IS_ENABLED(CONFIG_MODEM_GSM_QUECTEL_GNSS) */
