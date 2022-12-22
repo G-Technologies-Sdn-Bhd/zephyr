@@ -76,7 +76,6 @@ static const char TIME_STRING_FORMAT[] = "\"yy/MM/dd,hh:mm:ss?zz\"";
 #define QUARTER_HOUR_RANGE 0, 96
 #define SECONDS_PER_QUARTER_HOUR (15 * 60)
 #define SIZE_OF_NUL 1
-static int rssi;
 /* Modem network registration state */
 enum network_state {
 	GSM_NOT_REGISTERED,
