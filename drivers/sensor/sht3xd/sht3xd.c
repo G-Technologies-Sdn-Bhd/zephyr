@@ -18,7 +18,7 @@
 #include "sht3xd.h"
 
 LOG_MODULE_REGISTER(SHT3XD, CONFIG_SENSOR_LOG_LEVEL);
-static int sht3xd_init(const struct device *dev);
+
 #ifdef CONFIG_SHT3XD_SINGLE_SHOT_MODE
 static const uint16_t measure_cmd[3] = {
 	0x2400, 0x240B, 0x2416
@@ -98,21 +98,14 @@ static int sht3xd_sample_fetch(const struct device *dev,
 #endif
 #ifdef CONFIG_SHT3XD_PERIODIC_MODE
 	uint8_t tx_buf[2];
-	static int cont; 
+
 	sys_put_be16(SHT3XD_CMD_FETCH, tx_buf);
 
 	if (i2c_write_read_dt(&config->bus, tx_buf, sizeof(tx_buf),
 			      rx_buf, sizeof(rx_buf)) < 0) {
-		cont++;
-		LOG_dbg("Failed to read data sample! %d",cont);
-		
-		if(cont >5)
-		{
-			sht3xd_init(dev);
-		}
+		LOG_DBG("Failed to read data sample!");
 		return -EIO;
 	}
-	cont =0;
 #endif
 
 	t_sample = sys_get_be16(&rx_buf[0]);
