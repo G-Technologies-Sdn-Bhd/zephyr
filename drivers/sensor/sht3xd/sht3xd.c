@@ -34,6 +34,7 @@ static const uint16_t measure_cmd[5][3] = {
 };
 #endif
 
+static int sht3xd_init(const struct device *dev);
 static const int measure_wait[3] = {
 	4000, 6000, 15000
 };
@@ -98,13 +99,22 @@ static int sht3xd_sample_fetch(const struct device *dev,
 #endif
 #ifdef CONFIG_SHT3XD_PERIODIC_MODE
 	uint8_t tx_buf[2];
-
+	static uint8_t cont; 
 	sys_put_be16(SHT3XD_CMD_FETCH, tx_buf);
 
 	if (i2c_write_read_dt(&config->bus, tx_buf, sizeof(tx_buf),
 			      rx_buf, sizeof(rx_buf)) < 0) {
 		LOG_DBG("Failed to read data sample!");
+		cont++;
+		if(cont >5)
+		{
+			sht3xd_init(dev);
+		}
 		return -EIO;
+	}
+	else
+	{
+		cont = 0;
 	}
 #endif
 
