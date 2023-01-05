@@ -100,6 +100,24 @@ static int sht3xd_sample_fetch(const struct device *dev,
 #ifdef CONFIG_SHT3XD_PERIODIC_MODE
 	uint8_t tx_buf[2];
 	static uint8_t cont; 
+	int rc;
+
+	if (sht3xd_write_command(dev,
+				SHT3XD_CMD_HEATER_ON)
+	    < 0) {
+		LOG_DBG("Failed to set Heater On!");
+		return -EIO;
+	}
+	k_sleep(K_SECONDS(1));
+
+	if (sht3xd_write_command(dev,
+				SHT3XD_CMD_HEATER_OFF)
+	    < 0) {
+		LOG_DBG("Failed to set Heater OFF!");
+		return -EIO;
+	}	
+
+
 	sys_put_be16(SHT3XD_CMD_FETCH, tx_buf);
 
 	if (i2c_write_read_dt(&config->bus, tx_buf, sizeof(tx_buf),
