@@ -1,0 +1,19 @@
+# Copyright (c) 2023 G-Technologies Sdn. Bhd.
+# SPDX-License-Identifier: Apache-2.0
+
+description: PAS CO2 sensor with 2-Wire Interface.
+
+compatible: "sensirion,pasco2"
+
+include: i2c-device.yaml
+
+properties:
+    alert-gpios:
+      type: phandle-array
+      required: false
+      description: |
+        ALERT pin.
+
+        This pin signals active high when produced by the sensor.  The
+        property value should ensure the flags properly describe the
+        signal that is presented to the driver.
