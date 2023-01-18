@@ -3,7 +3,7 @@
 
 description: PAS CO2 sensor with 2-Wire Interface.
 
-compatible: "sensirion,pasco2"
+compatible: "infineon,pasco2"
 
 include: i2c-device.yaml
 
