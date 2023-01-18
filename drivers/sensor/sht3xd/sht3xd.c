@@ -100,8 +100,7 @@ static int sht3xd_sample_fetch(const struct device *dev,
 #ifdef CONFIG_SHT3XD_PERIODIC_MODE
 	uint8_t tx_buf[2];
 	static uint8_t cont; 
-	int rc;
-
+	
 	if (sht3xd_write_command(dev,
 				SHT3XD_CMD_HEATER_ON)
 	    < 0) {
