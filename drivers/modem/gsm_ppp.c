@@ -28,7 +28,7 @@ LOG_MODULE_REGISTER(modem_gsm, CONFIG_MODEM_LOG_LEVEL);
 #include "modem_iface_uart.h"
 #include "modem_cmd_handler.h"
 #include "../console/gsm_mux.h"
-
+#include <components/reset_cause.h>
 #include <stdio.h>
 #include <time.h>
 
@@ -281,7 +281,8 @@ MODEM_CMD_DEFINE(on_cmd_unsol_rdy)
 	}
 
 	__ASSERT(0, "Modem rebooted unexpectedly");
-	sys_reboot(SYS_REBOOT_COLD);
+	// sys_reboot(SYS_REBOOT_COLD);
+	gmoc_reboot_cold(GMOC_GSM_AT_FAILED);
 }
 
 static const struct modem_cmd response_cmds[] = {
@@ -946,6 +947,7 @@ int get_rssi(const struct device *dev)
 static void gsm_finalize_connection(struct k_work *work)
 {
 	int ret = 0;
+	static uint8_t at_retry = 0;
 	struct k_work_delayable *dwork = k_work_delayable_from_work(work);
 	struct gsm_modem *gsm = CONTAINER_OF(dwork, struct gsm_modem, gsm_configure_work);
 
@@ -975,9 +977,18 @@ static void gsm_finalize_connection(struct k_work *work)
 				     GSM_CMD_AT_TIMEOUT);
 		if (ret < 0) {
 			LOG_ERR("%s returned %d, %s", "AT", ret, "retrying...");
-			(void)gsm_work_reschedule(&gsm->gsm_configure_work, K_SECONDS(1));
+			
+			if(at_retry < 20)
+			// {
+			// 	(void)gsm_work_reschedule(&gsm->gsm_configure_work, K_SECONDS(1));
+			// }
+			// else{
+			// 	gmoc_reboot_cold(GMOC_GSM_AT_FAILED);
+			// }
+			// at_retry++;
 			goto unlock;
 		}
+		// at_retry = 0;
 	}
 	gsm->state = GSM_PPP_SETUP;
 
@@ -1140,6 +1151,7 @@ attaching:
 						gsm->at_dev);
 		if (ret < 0) {
 			LOG_DBG("iface %suart error %d", "AT ", ret);
+			gsm->state = GSM_PPP_STATE_ERROR;
 		} else {
 			/* Do a test and try to send AT command to modem */
 			ret = modem_cmd_send(&gsm->context.iface,
@@ -1151,13 +1163,14 @@ attaching:
 			if (ret < 0) {
 				LOG_WRN("%s returned %d, %s", "modem setup",
 					ret, "AT cmds failed");
+					gsm->state = GSM_PPP_STATE_ERROR;
 			} else {
 				LOG_INF("AT channel %d connected to %s",
 					DLCI_AT, gsm->at_dev->name);
 			}
 		}
 
-		if (IS_ENABLED(CONFIG_GSM_MUX)) {
+		if (IS_ENABLED(CONFIG_GSM_MUX) && gsm->state != GSM_PPP_STATE_ERROR) {
 			(void)gsm_work_reschedule(&gsm->rssi_work_handle,
 						  K_SECONDS(CONFIG_MODEM_GSM_RSSI_POLLING_PERIOD));
 		}
@@ -1798,7 +1811,7 @@ static void gsm_configure(struct k_work *work)
 			disable_power_source(&gsm->context);
 			gsm->state = GSM_PPP_PWR_SRC_OFF;
 			/* Arbitrary delay to drain the power */
-			(void)gsm_work_reschedule(&gsm->gsm_configure_work, K_SECONDS(1));
+			(void)gsm_work_reschedule(&gsm->gsm_configure_work, K_SECONDS(2));
 			goto unlock;
 		}
 	}
@@ -1914,6 +1927,7 @@ void gsm_ppp_start(const struct device *dev)
 				DEVICE_DT_GET(GSM_UART_NODE));
 	if (r) {
 		LOG_ERR("modem_iface_uart_init returned %d", r);
+		gsm->state = GSM_PPP_STATE_ERROR;
 		goto unlock;
 	}
 
