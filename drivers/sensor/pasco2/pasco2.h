@@ -14,9 +14,7 @@
 
 /*** Standard Commands ***/
 
-#define PASCO2_DEVICE_ID_VALUE  	0x28            //slave address (device ID)
-
-#define PASCO2_PROD_ID          	0x00            // who Am I (reg status)
+#define PASCO2_PROD_ID          	0x00            // (reg status)
 #define PASCO2_SENS_STS         	0x01            //sensor ready status
 #define PASCO2_MEAS_RATE_H      	0x02            //reg
 #define PASCO2_MEAS_RATE_L      	0x03
@@ -43,16 +41,37 @@
 // #define PASCO2_STANDY_MODE       false
 
 struct pasco2_config {
-	struct i2c_dt_spec i2c;
+	// struct i2c_dt_spec i2c;
+	struct i2c_dt_spec bus;
+
 };
 
-/************************PASCO2_DATA**************************/
+/////////////////////////////////////////////////////////////////////////////////////
+
+
+/////////////////////////////////////////////////////////////
+// int pasco2_write_command(const struct device *dev, uint16_t cmd);
+
+// int pasco2_write_reg(const struct device *dev, uint16_t cmd, uint16_t val);
+
+// int pasco2_attr_set(const struct device *dev,
+// 		    enum sensor_channel chan,
+// 		    enum sensor_attribute attr,
+// 		    const struct sensor_value *val);
+
+// struct pasco2_transfer_function {
+// 	int (*read_data)(const struct device *dev, uint8_t reg_addr, uint8_t *value, uint8_t len);
+// 	int (*write_data)(const struct device *dev, uint8_t reg_addr, uint8_t *value, uint8_t len);
+// 	int (*read_reg)(const struct device *dev, uint8_t reg_addr, uint8_t *value);
+// 	int (*write_reg)(const struct device *dev, uint8_t reg_addr, uint8_t value);
+// 	int (*update_reg)(const struct device *dev, uint8_t reg_addr, uint8_t mask, uint8_t value);
+// };
+
 struct pasco2_data
 {
  	// const struct device *i2c;
   uint16_t co2ppm_sample;
 //   const struct pasco2_transfer_function *hw_tf;
-
 };
 
 #endif  /* ZEPHYR_DRIVERS_SENSOR_PASCO2_H_ */
