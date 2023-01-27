@@ -351,7 +351,7 @@ static int paw3335_power_up_init(const struct device *dev)
 	paw3335_read(dev, 0x05, &data->data_yl, 1);
 	paw3335_read(dev, 0x06, &data->data_yh, 1);
 
-		paw3335_read(dev, 0x00, &sample, 1);
+	paw3335_read(dev, 0x00, &sample, 1);
 	printk("dev id = %x\n", sample);
 
 	return 0;
