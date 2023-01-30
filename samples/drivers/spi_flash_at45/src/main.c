@@ -148,7 +148,9 @@ void main(void)
 	}
 
 	printk("OK\n");
-
+printk("Erasing the whole chip... ");
+		err = flash_erase(flash_dev, 0, chip_size);
+		printk("OK\n");
 #if IS_ENABLED(CONFIG_PM_DEVICE)
 	printk("Putting the flash device into suspended state... ");
 	err = pm_device_state_set(flash_dev, PM_DEVICE_STATE_SUSPENDED);
