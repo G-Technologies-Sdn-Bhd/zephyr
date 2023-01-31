@@ -1,5 +1,5 @@
-/* Sensirion PAS CO2 sensor 
- *
+/*  Infineon PAS CO2 sensor driver
+ *	
  * Copyright (c) 2023 G-Technologies Sdn. Bhd.
  *
  * SPDX-License-Identifier: Apache-2.0
@@ -32,8 +32,7 @@ void main(void){
             printf("PASCO2: failed: %d\n", rc);
             break;
         }
-        // co2= sensor_value_to_double(&co2ppm);
-        // printf("I2C Port    : %d \n",id_table);
+
         printf("CO2 : %.2f ppm\n",sensor_value_to_double(&co2ppm));
         // printf("PASCO2: %.2f ppm\n",co2);
         // readc= pasco2_read_mode(dev, );

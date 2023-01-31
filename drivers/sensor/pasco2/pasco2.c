@@ -1,12 +1,9 @@
 /*  Infineon PAS CO2 sensor driver
- *	11.41
+ *	
  * Copyright (c) 2023 G-Technologies Sdn. Bhd.
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-
-#define DT_DRV_COMPAT  infineon_pasco2
-
 #include <drivers/sensor.h>
 #include <kernel.h>
 #include <device.h>
@@ -15,66 +12,66 @@
 #include <sys/__assert.h>
 #include <logging/log.h>
 #include <string.h>
+#include <drivers/i2c.h>
+
+#define DT_DRV_COMPAT infineon_pasco2
 
 #include "pasco2.h"
-#if DT_ANY_INST_ON_BUS_STATUS_OKAY(i2c)
 
-static int pasco2_i2c_read_data(const struct device *dev, uint8_t reg_addr, uint8_t *value,
-			       uint8_t len)
-{
-	const struct pasco2_config *cfg = dev->config;
-
-	return i2c_burst_read_dt(&cfg->bus, reg_addr, value, len);
-}
-
-static int pasco2_i2c_read_reg(const struct device *dev, uint8_t reg_addr, uint8_t *value)
-{
-	const struct pasco2_config *cfg = dev->config;
-
-	return i2c_reg_read_byte_dt(&cfg->bus, reg_addr, value);
-}
-
-static const struct pasco2_transfer_function pasco2_i2c_transfer_fn = {
-	.read_data = pasco2_i2c_read_data,
-	.read_reg = pasco2_i2c_read_reg,
-	
-};
-
-int pasco2_i2c_init(const struct device *dev)
-{
-	struct pasco2_data *data = dev->data;
-	const struct pasco2_config *cfg = dev->config;
-
-	data->hw_tf = &pasco2_i2c_transfer_fn;
-
-	if (!device_is_ready(cfg->bus.bus)) {
-		return -ENODEV;
-	}
-
-	return 0;
-}
-#endif /* DT_ANY_INST_ON_BUS_STATUS_OKAY(i2c) */
+#if DT_NUM_INST_STATUS_OKAY(DT_DRV_COMPAT) == 0
+#error "PASCO2 driver enabled without any devices"
+#endif
 
 LOG_MODULE_REGISTER(PASCO2, CONFIG_SENSOR_LOG_LEVEL);
 
+// static int pasco2_get_reg(const struct device *dev)
+// {
+// 	struct pasco2_data * data = dev->data;
+// 	uint8_t chip_id;
+// 	int ret;
+
+// 	ret = data->hw_tf->read_reg(dev, PASCO2_SENS_RST, &chip_id);
+// 	if (ret==0) 
+// 	{
+// 		printk("%s: Failed to read %s: %d", dev->name, "chip id", ret);
+// 		return ret;
+// 	}
+// 	else{
+// 		printk("%s: read %s: %d", dev->name, "chip id", ret);
+// 	}
+// };
+
 static int pasco2_write_command(const struct device *dev, uint8_t cmd)
 {
-	const struct pasco2_config *cfg = dev->config;
-	uint8_t tx_buf[2] = { cmd };
-
-	return i2c_write_dt(&cfg->bus, tx_buf, sizeof(tx_buf));
-}
-int pasco2_write_reg(const struct device *dev, uint16_t cmd, uint16_t val)
-{
-	const struct pasco2_config *config = dev->config;
-	uint8_t tx_buf[6];
-
-	sys_put_be16(cmd, &tx_buf[0]);
-	// sys_put_be16(val, &tx_buf[2]);
-
+	const struct pasco2_config *config  = dev->config;
+	uint8_t tx_buf[2];//= { cmd };
+	tx_buf[0] = PASCO2_SCRATCH_PAD;
+	tx_buf[1] = cmd;
 	return i2c_write_dt(&config->bus, tx_buf, sizeof(tx_buf));
 }
 
+int pasco2_write_reg(const struct device *dev, uint8_t cmd, uint8_t val)
+{
+	const struct pasco2_config *config = dev->config;
+	uint8_t tx_buf[2];
+	uint8_t rx_buf;
+
+	tx_buf[0] = PASCO2_SENS_RST;
+	tx_buf[1] = val;
+	sys_put_be16(cmd, &tx_buf);
+	
+	// if (i2c_write_read_dt(&config->bus, cmd, sizeof(cmd),
+	// 		      rx_buf, sizeof(rx_buf)) < 0) 
+	// 	{
+	// 			printk("Failed to read data sample!\r\n");
+	// 	}
+    // else{
+	// 	printk("read data sample : 0x%.2x\r\n",val);
+
+	// }
+return rx_buf;
+}
+	
 static int pasco2_sample_fetch(const struct device *dev,
 			       enum sensor_channel chan)
 {
@@ -82,52 +79,62 @@ static int pasco2_sample_fetch(const struct device *dev,
 	struct pasco2_data *data = dev->data;
 	uint8_t rx_buf[6];
 	uint8_t co2ppm_sample;
-	
-	__ASSERT_NO_MSG(chan == SENSOR_CHAN_ALL);
-	co2ppm_sample = sys_get_be16(&rx_buf[2]);
-	data->co2ppm_sample = co2ppm_sample;
-	// LOG_INF("CO2; %u",data->co2ppm_sample);
-	return 0;
-	
-}
 
+	__ASSERT_NO_MSG(chan == SENSOR_CHAN_ALL);
+		co2ppm_sample = sys_get_be16(&rx_buf[2]);
+		data->co2ppm_sample = co2ppm_sample;
+			return 0;
+
+}
 static int pasco2_channel_get(const struct device *dev,
 			      enum sensor_channel chan,
 			      struct sensor_value *val)
 {
-	// const struct pasco2_config *config = dev->config;
-	struct pasco2_data *data = dev->data;
+	const struct pasco2_data *data = dev->data;
 	uint8_t co2ppm;
-
-	
-	if (chan == SENSOR_CHAN_CO2) {
-	
+	if (chan == SENSOR_CHAN_CO2) 
+	{
 	co2ppm = (uint8_t)data->co2ppm_sample ;
-	val->val1 = (uint8_t)(co2ppm) ;
-	}
-	else {
-		return -ENOTSUP;
+	val->val1 = (uint8_t)(co2ppm/1) ;
 	}
 
-	return 0;
+	else
+	{
+		return -ENOTSUP;
+	}		return 0;
+
 }
+
 
 static int pasco2_init(const struct device *dev)
 {
-	const struct pasco2_config *cfg = dev->config;
+		const struct pasco2_config *cfg = dev->config;
+		struct pasco2_data *data = dev->data;
+
+	// struct pasco2_data *data = dev->data;
+
 
 	if (!device_is_ready(cfg->bus.bus)) {
-		LOG_ERR("I2C bus %s is not ready!", cfg->bus.bus->name);
-		return -EINVAL;
-	}
-
-	if (pasco2_write_command(dev, PASCO2_SENS_RST) < 0) {
-		LOG_DBG("Failed to clear status register!");
-		return -EIO;
-	}
-
-	k_sleep(K_MSEC(PASCO2_CLEAR_STATUS_WAIT_USEC));
-
+			LOG_ERR("I2C bus %s is not ready!", cfg->bus.bus->name);
+			return -EINVAL;
+		}
+		
+	/*get the address of the i2c of the sensor 0x28*/
+	else {
+		printk("\nI2C register is 0x%.2x \n", cfg->bus.addr);
+		}
+	
+/* clear status register */
+		if (pasco2_write_command(dev, PASCO2_SENS_RST) < 0) {
+			LOG_DBG("Failed to clear status register!");
+			return -EIO;
+		}
+		else{
+			// printk("Clear Status Register = 0x%.2x\r\n",PASCO2_SENS_RST);
+		}	
+		
+	k_busy_wait(PASCO2_CLEAR_STATUS_WAIT_USEC);
+ 	
 	return 0;
 }
 
