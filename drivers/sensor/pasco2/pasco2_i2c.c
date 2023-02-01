@@ -16,7 +16,7 @@ static int pasco2_i2c_read_data(const struct device *dev, uint8_t reg_addr, uint
 {
 	const struct pasco2_config *cfg = dev->config;
 
-	return i2c_burst_read_dt(&cfg->bus_cfg, reg_addr, value, len);
+	return i2c_burst_read_dt(&cfg->bus, reg_addr, value, len);
 }
 
 static int pasco2_i2c_write_data(const struct device *dev, uint8_t reg_addr, uint8_t *value,
@@ -24,21 +24,21 @@ static int pasco2_i2c_write_data(const struct device *dev, uint8_t reg_addr, uin
 {
 	const struct pasco2_config *cfg = dev->config;
 
-	return i2c_burst_write_dt(&cfg->bus_cfg, reg_addr, value, len);
+	return i2c_burst_write_dt(&cfg->bus, reg_addr, value, len);
 }
 
 static int pasco2_i2c_read_reg(const struct device *dev, uint8_t reg_addr, uint8_t *value)
 {
 	const struct pasco2_config *cfg = dev->config;
 
-	return i2c_reg_read_byte_dt(&cfg->bus_cfg, reg_addr, value);
+	return i2c_reg_read_byte_dt(&cfg->bus, reg_addr, value);
 }
 
 static int pasco2_i2c_write_reg(const struct device *dev, uint8_t reg_addr, uint8_t value)
 {
 	const struct pasco2_config *cfg = dev->config;
 
-	return i2c_reg_write_byte_dt(&cfg->bus_cfg, reg_addr, value);
+	return i2c_reg_write_byte_dt(&cfg->bus, reg_addr, value);
 }
 
 static int pasco2_i2c_update_reg(const struct device *dev, uint8_t reg_addr, uint8_t mask,
@@ -46,7 +46,7 @@ static int pasco2_i2c_update_reg(const struct device *dev, uint8_t reg_addr, uin
 {
 	const struct pasco2_config *cfg = dev->config;
 
-	return i2c_reg_update_byte_dt(&cfg->bus_cfg, reg_addr, mask, value);
+	return i2c_reg_update_byte_dt(&cfg->bus, reg_addr, mask, value);
 }
 
 static const struct pasco2_transfer_function pasco2_i2c_transfer_fn = {
@@ -64,11 +64,11 @@ int pasco2_i2c_init(const struct device *dev)
 
 	data->hw_tf = &pasco2_i2c_transfer_fn;
 
-	if (!device_is_ready(cfg->bus_cfg.bus)) {
+	if (!device_is_ready(cfg->bus.bus)) {
 		return -ENODEV;
 	}
 
 	return 0;
 }  
-}
+
 #endif /* DT_ANY_INST_ON_BUS_STATUS_OKAY(i2c) */

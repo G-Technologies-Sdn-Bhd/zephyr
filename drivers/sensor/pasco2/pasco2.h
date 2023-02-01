@@ -51,7 +51,7 @@
 struct pasco2_config {
 	// // struct i2c_dt_spec i2c;
 	// //->
-	// int (*bus_init)(const struct device *dev);
+	int (*bus_init)(const struct device *dev);
 	// struct i2c_dt_spec bus_cfg;	
 	// //<-
 
@@ -74,6 +74,7 @@ struct pasco2_data
   const struct pasco2_transfer_function *hw_tf;
 
 };
+
 
 int pasco2_i2c_init(const struct device *dev);
 
