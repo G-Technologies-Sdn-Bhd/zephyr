@@ -44,6 +44,8 @@
 
 #define PASCO2_CLEAR_STATUS_WAIT_USEC   	1000
 #define PASCO2_OPERATING_MODE 				true
+#define	PASCO2_COMM_TEST_VAL				0xA5
+#define PASCO2_CMD_SOFT_RESET 				0xA3
 
 // #define PASCO2_STANDY_MODE       false
 
