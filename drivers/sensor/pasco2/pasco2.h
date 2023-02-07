@@ -47,6 +47,42 @@
 #define	PASCO2_COMM_TEST_VAL				0xA5
 #define PASCO2_CMD_SOFT_RESET 				0xA3
 
+/** Result code indicating a successful operation */
+#define PASCO2_OK                        (0)
+
+/** Result code indicating a communication error */
+#define PASCO2_ERR_COMM                  (1)
+
+/** Result code indicating that an unexpectedly large I2C write was requested which is not supported */
+#define PASCO2_ERR_WRITE_TOO_LARGE       (2)
+
+/** Result code indicating that the sensor is not yet ready after reset */
+#define PASCO2_ERR_NOT_READY             (3)
+
+/** Result code indicating whether a non-valid command has been received by the serial communication interface */
+#define PASCO2_ICCERR                    (4)
+
+/** Result code indicating whether a condition where VDD12V has been outside the specified valid range has been detected */
+#define PASCO2_ORVS                      (5)
+
+/** Result code indicating whether a condition where the temperature has been outside the specified valid range has been detected */
+#define PASCO2_ORTMP                     (6)
+
+/** Result code indicating that a new CO2 value is not yet ready */
+#define PASCO2_READ_NRDY                 (7)
+
+#define	PASCO2_REG_SENS_STS_ICCER_POS			(3)
+#define PASCO2_REG_SENS_STS_ICCER_MSK           (0x01 << PASCO2_REG_SENS_STS_ICCER_POS)         /*!< SENS_STS: ICCER mask */
+
+#define	PASCO2_REG_SENS_STS_ORVS_POS			(4)
+#define PASCO2_REG_SENS_STS_ORVS_MSK            (0x01 << PASCO2_REG_SENS_STS_ORVS_POS)          /*!< SENS_STS: ORVS mask */
+
+#define	PASCO2_REG_SENS_STS_ORTMP_POS			(5)
+#define PASCO2_REG_SENS_STS_ORTMP_MSK           (0x01 << PASCO2_REG_SENS_STS_ORTMP_POS)         /*!< SENS_STS: ORTMP mask */
+
+#define	PASCO2_REG_SENS_STS_SEN_RDY_POS			(7)
+#define PASCO2_REG_SENS_STS_SEN_RDY_MSK         (0x01 << PASCO2_REG_SENS_STS_SEN_RDY_POS)       /*!< SENS_STS: SEN_RDY mask */
+
 // #define PASCO2_STANDY_MODE       false
 
 

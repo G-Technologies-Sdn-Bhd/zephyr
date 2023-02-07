@@ -195,7 +195,6 @@ static int pasco2_init(const struct device *dev)
 	uint8_t scratch;
 	uint8_t val;
 
-	
 	int ret;
 	int rc;
 	/*get the address of the i2c of the sensor 0x28*/
@@ -240,6 +239,22 @@ static int pasco2_init(const struct device *dev)
 		printk("Sensor status ready");
    		}
 	}
+
+	if (ret == 0) {
+        uint8_t rc;
+        ret = data->hw_tf->read_reg(dev, PASCO2_SENS_RST, &rc);
+        if (ret == 0) {
+            if (rc & PASCO2_REG_SENS_STS_ICCER_MSK) {
+                ret = PASCO2_ICCERR;
+            } else if (rc & PASCO2_REG_SENS_STS_ORVS_MSK) {
+                ret = PASCO2_ORVS;
+            } else if (rc & PASCO2_REG_SENS_STS_ORTMP_MSK) {
+                ret = PASCO2_ORTMP;
+            } else if (!(rc & PASCO2_REG_SENS_STS_SEN_RDY_MSK)) {
+                ret = PASCO2_ERR_NOT_READY;
+            }
+        }
+    }
 
 	(void)k_msleep(PASCO2_CLEAR_STATUS_WAIT_USEC);
 
