@@ -978,14 +978,16 @@ static void gsm_finalize_connection(struct k_work *work)
 		if (ret < 0) {
 			LOG_ERR("%s returned %d, %s", "AT", ret, "retrying...");
 			
-			if(at_retry < 20)
+			if(at_retry < 10)
 			{
 				(void)gsm_work_reschedule(&gsm->gsm_configure_work, K_SECONDS(1));
 			}
-			else{
-				gsm->state == GSM_PPP_PWR_SRC_OFF;
-				(void)gsm_work_reschedule(&gsm->gsm_configure_work, K_SECONDS(1));
-				// gmoc_reboot_cold(GMOC_GSM_AT_FAILED);
+			else if(at_retry > 10 && at_retry < 16)
+			{
+				(void)gsm_work_reschedule(&gsm->gsm_configure_work, K_SECONDS(10));
+			}
+			else{	
+				gmoc_reboot_cold(GMOC_GSM_AT_FAILED);
 			}
 			at_retry++;
 			goto unlock;
