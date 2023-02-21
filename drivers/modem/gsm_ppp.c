@@ -978,13 +978,27 @@ static void gsm_finalize_connection(struct k_work *work)
 		if (ret < 0) {
 			LOG_ERR("%s returned %d, %s", "AT", ret, "retrying...");
 			
-			if(at_retry < 10)
+			if(at_retry < 3)
 			{
 				(void)gsm_work_reschedule(&gsm->gsm_configure_work, K_SECONDS(1));
 			}
-			else if(at_retry > 10 && at_retry < 16)
+			else if(at_retry == 3)
 			{
+				disable_power_source(&gsm->context);
+				gsm->state = GSM_PPP_PWR_SRC_OFF;
 				(void)gsm_work_reschedule(&gsm->gsm_configure_work, K_SECONDS(10));
+			}
+			else if(at_retry == 4)
+			{
+				disable_power_source(&gsm->context);
+				gsm->state = GSM_PPP_PWR_SRC_OFF;
+				(void)gsm_work_reschedule(&gsm->gsm_configure_work, K_SECONDS(20));
+			}
+			else if(at_retry == 5)
+			{
+				disable_power_source(&gsm->context);
+				gsm->state = GSM_PPP_PWR_SRC_OFF;
+				(void)gsm_work_reschedule(&gsm->gsm_configure_work, K_SECONDS(30));
 			}
 			else{	
 				gmoc_reboot_cold(GMOC_GSM_AT_FAILED);
