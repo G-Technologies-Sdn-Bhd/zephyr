@@ -42,7 +42,7 @@ LOG_MODULE_REGISTER(modem_gsm, CONFIG_MODEM_LOG_LEVEL);
 #define GSM_RECV_BUF_SIZE               128
 #define GSM_ATTACH_RETRY_DELAY_MSEC     1000
 #define GSM_REGISTER_DELAY_MSEC         1000
-#define GSM_REGISTER_TIMEOUT            60
+#define GSM_REGISTER_TIMEOUT            30//60
 
 #define GSM_RSSI_RETRY_DELAY_MSEC       2000
 #define GSM_RSSI_RETRIES                10
@@ -1058,7 +1058,8 @@ registering:
 				    "AT+CREG?",
 				    &gsm->sem_response,
 				    GSM_CMD_SETUP_TIMEOUT);
-	if ((ret < 0) || ((gsm->net_state != GSM_ROAMING) &&
+	
+	if ((ret < 0)|| ((gsm->net_state != GSM_ROAMING) &&
 			 (gsm->net_state != GSM_HOME_NETWORK))) {
 		if (!gsm->retries) {
 			gsm->retries = GSM_REGISTER_TIMEOUT *
