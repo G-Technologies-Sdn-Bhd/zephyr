@@ -80,6 +80,8 @@ source "drivers/sensor/ccs811/Kconfig"
 
 source "drivers/sensor/dht/Kconfig"
 
+source "drivers/sensor/ds18b20/Kconfig"
+
 source "drivers/sensor/dps310/Kconfig"
 
 source "drivers/sensor/dypa01/Kconfig"
