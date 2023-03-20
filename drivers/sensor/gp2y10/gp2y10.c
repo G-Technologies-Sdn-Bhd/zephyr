@@ -52,7 +52,7 @@ static void gp2y10_uart_isr(const struct device *uart_dev, void *user_data)
         else{
 		if (d->xfer_bytes == GP2Y10_BUF_LEN){
 
-            //  LOG_HEXDUMP_WRN( d->buffer,sizeof(d->buffer),"Rd data:");
+             LOG_HEXDUMP_WRN( d->buffer,sizeof(d->buffer),"Rd data:");
 			d->xfer_bytes = 0;
 			uart_irq_rx_disable(uart_dev);
 			k_sem_give(&d->rx_sem);
@@ -85,17 +85,23 @@ static inline int gp2y10_poll_data(const struct device *dev)
     {
 		d->data_valid = false;
         LOG_ERR("Missmatch Checksum");
+        return -EINVAL;
 
 	}
     double value;
-    value = (((uint16_t)d->buffer[1] << 8) | (d->buffer[2]))/1024.0;
+    uint16_t daa = sys_get_be16(&d->buffer[1]);
+    value = (float)(daa/1024.0);
     value *=5.0; 
     
     /*Dust coefficient need to recalibrate with dust meter */
     float a = 100/0.35;
+    
     value = a *value;
+      
 	d->data_valid = true;
-	d->data =(int)(value *100);
+  
+	d->data =(value *100);
+    printk("value ====> %d %f\r\n",d->data, value);
     uart_irq_rx_disable(cfg->uart_dev);
 
 	return ret;
@@ -123,7 +129,7 @@ static int gp2y10_channel_get(const struct device *dev, enum sensor_channel chan
 		return -EINVAL;
 	}
 
-	val->val1 = (int16_t)d->data/100;
+	val->val1 = d->data/100;
 	val->val2 = (d->data%100)*10000;
 
 	return 0;

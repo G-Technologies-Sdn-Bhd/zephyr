@@ -7,7 +7,7 @@
 #include <device.h>
 #include <init.h>
 #include <drivers/uart.h>
-
+#include <sys/byteorder.h>
 
 #define GP2Y10_BUF_LEN 7
 #define GP2Y10_DATA_LEN 8
@@ -19,7 +19,7 @@ struct gp2y10_data {
 
 	const struct device *uart_dev;
 
-	uint16_t data;
+	uint32_t data;
 
 	uint8_t xfer_bytes;
 
