@@ -425,7 +425,7 @@ struct modbus_server_param {
 struct modbus_iface_param {
 	/** Mode of the interface */
 	enum modbus_mode mode;
-	union {
+	struct {
 		struct modbus_server_param server;
 		/** Amount of time client will wait for
 		 *  a response from the server.

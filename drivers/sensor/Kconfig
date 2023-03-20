@@ -96,6 +96,8 @@ source "drivers/sensor/fxos8700/Kconfig"
 
 source "drivers/sensor/grove/Kconfig"
 
+source "drivers/sensor/gp2y10/Kconfig"
+
 source "drivers/sensor/ti_hdc/Kconfig"
 
 source "drivers/sensor/ti_hdc20xx/Kconfig"
