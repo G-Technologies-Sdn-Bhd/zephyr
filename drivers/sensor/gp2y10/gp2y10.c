@@ -52,7 +52,7 @@ static void gp2y10_uart_isr(const struct device *uart_dev, void *user_data)
         else{
 		if (d->xfer_bytes == GP2Y10_BUF_LEN){
 
-             LOG_HEXDUMP_WRN( d->buffer,sizeof(d->buffer),"Rd data:");
+            //  LOG_HEXDUMP_WRN( d->buffer,sizeof(d->buffer),"Rd data:");
 			d->xfer_bytes = 0;
 			uart_irq_rx_disable(uart_dev);
 			k_sem_give(&d->rx_sem);
@@ -93,15 +93,15 @@ static inline int gp2y10_poll_data(const struct device *dev)
     value = (float)(daa/1024.0);
     value *=5.0; 
     
-    /*Dust coefficient need to recalibrate with dust meter */
-    float a = 100/0.35;
-    
-    value = a *value;
-      
+    /*Dust coefficient need to recalibrate with dust meter
+      example PM2.5 a = 700
+     */
+    float a = 100/0.35; 
+    value = (value * a);
+   
 	d->data_valid = true;
   
 	d->data =(value *100);
-    printk("value ====> %d %f\r\n",d->data, value);
     uart_irq_rx_disable(cfg->uart_dev);
 
 	return ret;
