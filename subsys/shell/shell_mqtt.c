@@ -277,7 +277,7 @@ static void sh_mqtt_process_handler(struct k_work *work)
 
 	/* Reschedule the process work */
 	LOG_DBG("Scheduling %s work", "process");
-	(void)sh_mqtt_work_reschedule(&sh_mqtt->process_dwork, K_SECONDS(2));
+	(void)sh_mqtt_work_reschedule(&sh_mqtt->process_dwork, K_SECONDS(10));
 	sh_mqtt_context_unlock();
 	return;
 
