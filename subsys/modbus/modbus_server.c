@@ -944,7 +944,7 @@ bool modbus_server_handler(struct modbus_context *ctx)
 		return false;
 	}
 
-	if (addr != 0 && addr != ctx->unit_id) {
+	if (addr != 0xFF && addr != ctx->unit_id) {
 		update_noresp_ctr(ctx);
 		return false;
 	}
