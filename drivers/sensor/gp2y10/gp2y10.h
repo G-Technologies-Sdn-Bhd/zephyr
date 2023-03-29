@@ -11,7 +11,8 @@
 
 #define GP2Y10_BUF_LEN 7
 #define GP2Y10_DATA_LEN 8
-
+#define GP2Y10_START_BYTE 0xAA
+#define GP2Y10_STOP_BYTE 0xFF
 #define gp2y10_TIMEOUT 1000 *MSEC_PER_SEC
 #define gp2y10_WAIT K_SECONDS(2)
 

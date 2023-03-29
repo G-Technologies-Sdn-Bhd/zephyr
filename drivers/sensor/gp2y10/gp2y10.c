@@ -46,16 +46,22 @@ static void gp2y10_uart_isr(const struct device *uart_dev, void *user_data)
        
 		d->xfer_bytes += uart_fifo_read(uart_dev, &d->buffer[d->xfer_bytes],
 					     GP2Y10_BUF_LEN - d->xfer_bytes);
-        if(d->buffer[0]!= 0xAA){
+      
+		if(d->buffer[0]!= GP2y10_START_BYTE){
             d->xfer_bytes = 0;
         }
         else{
 		if (d->xfer_bytes == GP2Y10_BUF_LEN){
-
-            //  LOG_HEXDUMP_WRN( d->buffer,sizeof(d->buffer),"Rd data:");
+			if(d->buffer[6]== GP2y10_STOP_BYTE){
+               LOG_HEXDUMP_WRN( d->buffer,sizeof(d->buffer),"Rd data:");
 			d->xfer_bytes = 0;
 			uart_irq_rx_disable(uart_dev);
 			k_sem_give(&d->rx_sem);
+			}
+			else{
+				memset(d->buffer,0,sizeof(d->buffer));
+			}
+
 		}
         }
 	}
