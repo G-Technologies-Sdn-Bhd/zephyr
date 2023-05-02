@@ -231,9 +231,7 @@ static const char *tcp_flags(uint8_t flags)
 			len += snprintk(buf + len, BUF_SIZE - len, "URG,");
 		}
 
-		if (len > 0) {
-			buf[len - 1] = '\0'; /* delete the last comma */
-		}
+		buf[len - 1] = '\0'; /* delete the last comma */
 	}
 #undef BUF_SIZE
 	return buf;
