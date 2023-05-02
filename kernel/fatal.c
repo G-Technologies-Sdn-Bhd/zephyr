@@ -25,11 +25,15 @@ FUNC_NORETURN __weak void arch_system_halt(unsigned int reason)
 	/* TODO: What's the best way to totally halt the system if SMP
 	 * is enabled?
 	 */
-
+	
 	(void)arch_irq_lock();
-	for (;;) {
-		/* Spin endlessly */
-	}
+	/*instead  device hang it will reset*/
+
+	NVIC_SystemReset();
+	
+	// for (;;) {
+	// 	/* Spin endlessly */
+	// }
 }
 /* LCOV_EXCL_STOP */
 

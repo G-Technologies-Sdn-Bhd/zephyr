@@ -11,7 +11,7 @@ config MODEM_GSM_PPP
 
 if MODEM_GSM_PPP
 
-choice
+choice MODEM_GSM_TYPE
 	prompt "Modem type"
 	default MODEM_GSM_GENERIC
 	help
@@ -34,11 +34,24 @@ config MODEM_GSM_QUECTEL
 
 endchoice
 
+if MODEM_GSM_QUECTEL
+
+source "drivers/modem/Kconfig.quectel"
+
+endif
+
 config MODEM_GSM_RX_STACK_SIZE
 	int "Size of the stack allocated for receiving data from modem"
 	default 512
 	help
 	  Sets the stack size which will be used by the GSM RX thread.
+
+config MODEM_GSM_WORKQ_STACK_SIZE
+	int "Size of the stack allocated for the dedicated gsm workqueue"
+	default 768
+	help
+	  Sets the stack size which will be used by the dedicated GSM workqueue
+	  thread.
 
 config MODEM_GSM_INIT_PRIORITY
 	int "Init priority for the GSM modem driver"

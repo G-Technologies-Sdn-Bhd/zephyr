@@ -1,0 +1,114 @@
+#include <logging/log.h>
+#include "dypa01.h"
+
+
+LOG_MODULE_REGISTER(dypa01, CONFIG_SENSOR_LOG_LEVEL);
+
+static struct dypa01_data dypa01;
+
+static int checksum(const uint8_t *data)
+{
+	return (data[0] + data[1] + data[2]) & 0xFF;
+}
+
+static int uart_read_bytes(const struct device *uart_dev, uint8_t *data, int timeout)
+{
+	int read_size = 0;
+	int64_t timeout_time = k_uptime_get() + timeout;
+
+	while (1) {
+		uint8_t c;
+
+		if (k_uptime_get() > timeout_time) {
+			return -ETIME;
+		}
+
+		if (uartpoll_in(uart_dev, &c) == 0) {
+
+			if (read_size == 0 && c == 0xFF){
+				data[read_size++] = c;
+			}
+
+			else if ((read_size == 1 || read_size == 2) && c != 0xFF){
+				data[read_size++] = c;
+			}
+
+			else if (read_size == 3 && c != 0xFF){
+				data[read_size] = c;
+				break;
+			}
+		}
+	}
+
+	return 0;
+}
+
+static int dypa01_sample_fetch(const struct device *dev, enum sensor_channel chan)
+{
+	struct dypa01_data *d = dev->data;
+
+	uint8_t buffer[4];
+	int sum;
+
+	if (uart_read_bytes(d->uart_dev, buffer, dypa01_TIMEOUT) < 0){
+		return -ETIME;
+	}
+
+	for (int i = 0; i < 4; i++){
+		printk("buffer = %X\n", buffer[i]);
+	}
+
+	sum = checksum(buffer);
+	if (sum != buffer[3]){
+		d->data_valid = false;
+		return -EBADMSG;
+	}
+
+	d->data_valid = true;
+	d->data = ((uint16_t)buffer[1] << 8) + (buffer[2]);
+
+	return 0;
+}
+
+
+static int dypa01_channel_get(const struct device *dev, enum sensor_channel chan,
+			      struct sensor_value *val)
+{
+	struct dypa01_data *d = dev->data;
+
+	if (chan != SENSOR_CHAN_DISTANCE){
+		return -ENOTSUP;
+	}
+
+	if (!d->data_valid){
+		LOG_DBG("Checksum mismatch");
+		return -EINVAL;
+	}
+
+	val->val1 = (int32_t)d->data;
+	val->val2 = 0;
+
+	return 0;
+}
+
+static const struct sensor_driver_api dypa01_api_funcs = {
+	.sample_fetch = dypa01_sample_fetch,
+	.channel_get = dypa01_channel_get,
+};
+
+static int dypa01_init(const struct device *dev)
+{
+	struct dypa01_data *d = dev->data;
+
+	d->uart_dev = device_get_binding(DT_INST_BUS_LABEL(0));
+
+	if (!d->uart_dev) {
+		LOG_DBG("uart device is not found: %s",
+			    DT_INST_BUS_LABEL(0));
+		return -EINVAL;
+	}
+	return 0;
+}
+
+DEVICE_DT_INST_DEFINE(0, dypa01_init, NULL, &dypa01, NULL, POST_KERNEL, CONFIG_SENSOR_INIT_PRIORITY,
+		      &dypa01_api_funcs);

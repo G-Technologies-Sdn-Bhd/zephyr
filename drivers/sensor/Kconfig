@@ -54,6 +54,8 @@ source "drivers/sensor/ams_iAQcore/Kconfig"
 
 source "drivers/sensor/apds9960/Kconfig"
 
+source "drivers/sensor/bgt3001/Kconfig"
+
 source "drivers/sensor/bma280/Kconfig"
 
 source "drivers/sensor/bmc150_magn/Kconfig"
@@ -78,7 +80,11 @@ source "drivers/sensor/ccs811/Kconfig"
 
 source "drivers/sensor/dht/Kconfig"
 
+source "drivers/sensor/ds18b20/Kconfig"
+
 source "drivers/sensor/dps310/Kconfig"
+
+source "drivers/sensor/dypa01/Kconfig"
 
 source "drivers/sensor/ens210/Kconfig"
 
@@ -89,6 +95,8 @@ source "drivers/sensor/fxas21002/Kconfig"
 source "drivers/sensor/fxos8700/Kconfig"
 
 source "drivers/sensor/grove/Kconfig"
+
+source "drivers/sensor/gp2y10/Kconfig"
 
 source "drivers/sensor/ti_hdc/Kconfig"
 
@@ -130,6 +138,10 @@ source "drivers/sensor/lis2mdl/Kconfig"
 
 source "drivers/sensor/lis3mdl/Kconfig"
 
+source "drivers/sensor/jsymk163/Kconfig"
+
+source "drivers/sensor/kx022/Kconfig"
+
 source "drivers/sensor/lm75/Kconfig"
 
 source "drivers/sensor/lm77/Kconfig"
@@ -166,6 +178,8 @@ source "drivers/sensor/mchp_tach_xec/Kconfig"
 
 source "drivers/sensor/mcp9808/Kconfig"
 
+source "drivers/sensor/mhz19b/Kconfig"
+
 source "drivers/sensor/mpr/Kconfig"
 
 source "drivers/sensor/mpu6050/Kconfig"
@@ -177,6 +191,8 @@ source "drivers/sensor/ms5607/Kconfig"
 source "drivers/sensor/nrf5/Kconfig"
 
 source "drivers/sensor/opt3001/Kconfig"
+
+source "drivers/sensor/paw3335/Kconfig"
 
 source "drivers/sensor/pms7003/Kconfig"
 
@@ -229,5 +245,7 @@ source "drivers/sensor/wsen_itds/Kconfig"
 source "drivers/sensor/mcux_acmp/Kconfig"
 
 source "drivers/sensor/nuvoton_tach_npcx/Kconfig"
+
+source "drivers/sensor/vmszs/Kconfig"
 
 endif # SENSOR

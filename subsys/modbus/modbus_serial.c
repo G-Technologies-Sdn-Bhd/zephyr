@@ -267,6 +267,7 @@ static uint16_t modbus_rtu_crc16(uint8_t *src, size_t length)
 	}
 
 	return crc;
+
 }
 
 /* Copy Modbus RTU frame and check if the CRC is valid. */
@@ -293,14 +294,17 @@ static int modbus_rtu_rx_adu(struct modbus_context *ctx)
 	crc_idx = cfg->uart_buf_ctr - sizeof(uint16_t);
 
 	memcpy(ctx->rx_adu.data, data_ptr, ctx->rx_adu.length);
-
+	// for(int i = 0; i != crc_idx;i++)
+	// {
+	// 	printk("%d rd_data %x",i,cfg->uart_buf[i]);
+	// }
 	ctx->rx_adu.crc = sys_get_le16(&cfg->uart_buf[crc_idx]);
 	/* Calculate CRC over address, function code, and payload */
 	calc_crc = modbus_rtu_crc16(&cfg->uart_buf[0],
 				    cfg->uart_buf_ctr - sizeof(ctx->rx_adu.crc));
 
 	if (ctx->rx_adu.crc != calc_crc) {
-		LOG_WRN("Calculated CRC does not match received CRC");
+		LOG_WRN("Calculated CRC does not match received CRC: %x calc: %x",ctx->rx_adu.crc ,calc_crc);
 		return -EIO;
 	}
 

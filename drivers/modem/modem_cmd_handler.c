@@ -110,8 +110,8 @@ static int parse_params(struct modem_cmd_handler_data *data,  size_t match_len,
 			const struct modem_cmd *cmd,
 			uint8_t **argv, size_t argv_len, uint16_t *argc)
 {
-	int i, count = 0;
-	size_t begin, end;
+	int count = 0;
+	size_t begin, end, i;
 
 	if (!data || !data->match_buf || !match_len || !cmd || !argv || !argc) {
 		return -EINVAL;
@@ -215,7 +215,8 @@ static int process_cmd(const struct modem_cmd *cmd, size_t match_len,
 static const struct modem_cmd *find_cmd_match(
 		struct modem_cmd_handler_data *data)
 {
-	int j, i;
+	int j;
+	size_t i;
 
 	for (j = 0; j < ARRAY_SIZE(data->cmds); j++) {
 		if (!data->cmds[j] || data->cmds_len[j] == 0U) {
@@ -238,7 +239,7 @@ static const struct modem_cmd *find_cmd_match(
 static const struct modem_cmd *find_cmd_direct_match(
 		struct modem_cmd_handler_data *data)
 {
-	int j, i;
+	size_t j, i;
 
 	for (j = 0; j < ARRAY_SIZE(data->cmds); j++) {
 		if (!data->cmds[j] || data->cmds_len[j] == 0U) {
@@ -490,7 +491,15 @@ int modem_cmd_send_ext(struct modem_iface *iface,
 
 	data = (struct modem_cmd_handler_data *)(handler->cmd_handler_data);
 	if (!(flags & MODEM_NO_TX_LOCK)) {
-		k_sem_take(&data->sem_tx_lock, K_FOREVER);
+		if (data->use_mutex) {
+			ret = k_mutex_lock(&data->mutex_tx_lock, K_FOREVER);
+		} else {
+			ret = k_sem_take(&data->sem_tx_lock, K_FOREVER);
+		}
+
+		if (ret) {
+			__ASSERT(0, "Failed to lock tx: %d", ret);
+		}
 	}
 
 	if (!(flags & MODEM_NO_SET_CMDS)) {
@@ -539,7 +548,11 @@ int modem_cmd_send_ext(struct modem_iface *iface,
 
 unlock_tx_lock:
 	if (!(flags & MODEM_NO_TX_LOCK)) {
-		k_sem_give(&data->sem_tx_lock);
+		if (data->use_mutex) {
+			(void)k_mutex_unlock(&data->mutex_tx_lock);
+		} else {
+			k_sem_give(&data->sem_tx_lock);
+		}
 	}
 
 	return ret;
@@ -551,7 +564,8 @@ int modem_cmd_handler_setup_cmds(struct modem_iface *iface,
 				 const struct setup_cmd *cmds, size_t cmds_len,
 				 struct k_sem *sem, k_timeout_t timeout)
 {
-	int ret = 0, i;
+	int ret = 0;
+	size_t i;
 
 	for (i = 0; i < cmds_len; i++) {
 		if (i) {
@@ -586,7 +600,8 @@ int modem_cmd_handler_setup_cmds_nolock(struct modem_iface *iface,
 					size_t cmds_len, struct k_sem *sem,
 					k_timeout_t timeout)
 {
-	int ret = 0, i;
+	int ret = 0;
+	size_t i;
 
 	for (i = 0; i < cmds_len; i++) {
 		if (i) {
@@ -620,6 +635,11 @@ int modem_cmd_handler_tx_lock(struct modem_cmd_handler *handler,
 	struct modem_cmd_handler_data *data;
 	data = (struct modem_cmd_handler_data *)(handler->cmd_handler_data);
 
+	if (data->use_mutex) {
+		__ASSERT(0, "Using mutex");
+		return -EACCES;
+	}
+
 	return k_sem_take(&data->sem_tx_lock, timeout);
 }
 
@@ -628,7 +648,11 @@ void modem_cmd_handler_tx_unlock(struct modem_cmd_handler *handler)
 	struct modem_cmd_handler_data *data;
 	data = (struct modem_cmd_handler_data *)(handler->cmd_handler_data);
 
-	k_sem_give(&data->sem_tx_lock);
+	if (data->use_mutex) {
+		__ASSERT(0, "Using mutex");
+	} else {
+		k_sem_give(&data->sem_tx_lock);
+	}
 }
 
 int modem_cmd_handler_init(struct modem_cmd_handler *handler,
@@ -651,7 +675,11 @@ int modem_cmd_handler_init(struct modem_cmd_handler *handler,
 	handler->cmd_handler_data = data;
 	handler->process = cmd_handler_process;
 
-	k_sem_init(&data->sem_tx_lock, 1, 1);
+	if (data->use_mutex) {
+		k_mutex_init(&data->mutex_tx_lock);
+	} else {
+		k_sem_init(&data->sem_tx_lock, 1, 1);
+	}
 	k_sem_init(&data->sem_parse_lock, 1, 1);
 
 	return 0;

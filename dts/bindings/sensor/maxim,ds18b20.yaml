@@ -1,0 +1,24 @@
+# Copyright (c) 2021-2022 G-Technologies Sdn. Bhd.
+# SPDX-License-Identifier: Apache-2.0
+
+description: |
+    Maxim DHT (Digital-output Humidity and Temperature Sensor)
+
+    The Maxim DHT family of sensors provide temperature and humidity
+    measurements through a bidirectional serial digital signal.
+
+compatible: "maxim,ds18b20"
+
+include: base.yaml
+
+properties:
+  dio-gpios:
+    type: phandle-array
+    required: true
+    description: |
+      Pin on which sensor communication will be performed.
+
+      Control and data are encoded by the duration of active low
+      signals.  A pull up may be appropriate.
+
+    

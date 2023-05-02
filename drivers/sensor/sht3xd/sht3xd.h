@@ -13,6 +13,8 @@
 #include <drivers/i2c.h>
 
 #define SHT3XD_CMD_FETCH                0xE000
+#define SHT3XD_CMD_HEATER_ON 			0x306D
+#define SHT3XD_CMD_HEATER_OFF 			0x3066
 #define SHT3XD_CMD_ART                  0x2B32
 #define SHT3XD_CMD_READ_STATUS          0xF32D
 #define SHT3XD_CMD_CLEAR_STATUS         0x3041

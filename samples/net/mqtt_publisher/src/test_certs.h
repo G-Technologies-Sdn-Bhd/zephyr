@@ -14,6 +14,7 @@
 
 #if defined(CONFIG_TLS_CREDENTIAL_FILENAMES)
 static const unsigned char ca_certificate[] = "ca_cert.der";
+printk("using Filename\r\n");
 #else
 static const unsigned char ca_certificate[] = {
 #include "ca_cert.der.inc"

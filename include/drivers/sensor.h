@@ -176,6 +176,12 @@ enum sensor_channel {
 	SENSOR_CHAN_GAUGE_DESIRED_VOLTAGE,
 	/** Desired charging current in mA */
 	SENSOR_CHAN_GAUGE_DESIRED_CHARGING_CURRENT,
+	/** NPK (Nitrogen,phosphorus and potassium) content in soil**/
+	SENSOR_CHAN_SOIL_NPK,
+	/** Delta X-Y axis in mm */
+	SENSOR_CHAN_DELTA_XY,
+	/** Rawdata from sensor */
+	SENSOR_CHAN_RAWDATA,
 
 	/** All channels. */
 	SENSOR_CHAN_ALL,
