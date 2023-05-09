@@ -80,16 +80,15 @@ struct hawkbit_ctl_res {
 };
 
 struct hawkbit_cfg_data {
-	const char *serial_num;
-	const char *board;
-	uint32_t major;
-	uint32_t minor;
-	uint32_t revision;
+	const char *VIN;
+	const char *hwRevision;
 };
 
 struct hawkbit_cfg {
 	const char *mode;
 	struct hawkbit_cfg_data data;
+	const char *id;
+	const char *time;
 	struct hawkbit_status status;
 };
 
