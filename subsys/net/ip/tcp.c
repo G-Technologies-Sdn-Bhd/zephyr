@@ -236,7 +236,9 @@ static const char *tcp_flags(uint8_t flags)
 			len += snprintk(buf + len, BUF_SIZE - len, "URG,");
 		}
 
-		buf[len - 1] = '\0'; /* delete the last comma */
+		if (len > 0) {
+			buf[len - 1] = '\0'; /* delete the last comma */
+		}
 	}
 #undef BUF_SIZE
 	return buf;
@@ -850,6 +852,7 @@ static bool is_destination_local(struct net_pkt *pkt)
 
 	return false;
 }
+
 
 static int tcp_out_ext(struct tcp *conn, uint8_t flags, struct net_pkt *data,
 		       uint32_t seq)
