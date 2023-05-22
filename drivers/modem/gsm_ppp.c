@@ -1924,6 +1924,20 @@ char *gsm_ppp_get_model(const struct device *dev)
 	return gsm->context.data_model;
 }
 
+char *gsm_ppp_get_iccid(const struct device *dev)
+{
+	struct gsm_modem *gsm = dev->data;
+
+	return gsm->context.data_iccid;
+}
+
+char *gsm_ppp_get_imsi(const struct device *dev)
+{
+	struct gsm_modem *gsm = dev->data;
+
+	return gsm->context.data_imsi;
+}
+
 void gsm_ppp_start(const struct device *dev)
 {
 	struct gsm_modem *gsm = dev->data;

@@ -103,4 +103,18 @@ char *gsm_ppp_get_manufacturer(const struct device *dev);
  */
 char *gsm_ppp_get_model(const struct device *dev);
 
+/**
+ * @brief Get the modem's iccid
+ *
+ * @retval Pointer to the buffer holding the ICCID 
+ * (Integrated Circuit Card Identifier)
+ */
+char *gsm_ppp_get_iccid(const struct device *dev);
+/**
+ * @brief Get the modem's imsi
+ *
+ * @retval Pointer to the buffer holding the IMSI 
+ * (International Mobile Subscriber Identity)
+ */
+char *gsm_ppp_get_imsi(const struct device *dev);
 #endif /* ZEPHYR_INCLUDE_DRIVERS_MODEM_GSM_PPP_H_ */
