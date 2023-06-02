@@ -136,7 +136,7 @@ retry:
 
 	switch (cmd_idx) {
 	case MHZ19B_CMD_IDX_GET_CO2:
-		if(data->heater_rd == true)
+		if(heater_rd == true)
 		{
 			data->data = sys_get_be16(&data->rd_data[2]);
 		}
@@ -327,13 +327,11 @@ static void mhz19b_uart_isr(const struct device *uart_dev, void *user_data)
 	}
 }
 
-static void weather_dwork_handler(struct k_work *work)
+static void dwork_handler(struct k_work *work)
 {
 	int ret = 0;
-
 	ARG_UNUSED(work);
-	
-	data.heater_rd = true;
+	heater_rd = true;
 }
 
 static int mhz19b_init(const struct device *dev)
@@ -359,7 +357,7 @@ static int mhz19b_init(const struct device *dev)
 		return ret;
 	}
 
-	data->heater_rd=false;
+	heater_rd=false;
 	/* Configure ABC logic */
 	ret = mhz19b_attr_abc_cfg(dev, cfg->abc_on);
 	if (ret != 0) {

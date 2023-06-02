@@ -17,6 +17,7 @@
 #define MHZ19B_RX_CMD_IDX 1
 #define MHZ19B_CHECKSUM_IDX 8
 #define MAX_MHZ19B_RETRY_COUNT 5 
+static bool heater_rd=false;
 /* Arbitrary max duration to wait for the response */
 #define MHZ19B_WAIT K_SECONDS(1)
 #define DELAY_START K_SECONDS(180)
@@ -57,7 +58,7 @@ struct mhz19b_data {
 
 	struct k_sem tx_sem;
 	struct k_sem rx_sem;
-	bool heater_rd;
+	// bool heater_rd;
 	struct k_work_delayable dwork;
 	enum mhz19b_cmd_idx cmd_idx;
 };
