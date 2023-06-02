@@ -136,7 +136,14 @@ retry:
 
 	switch (cmd_idx) {
 	case MHZ19B_CMD_IDX_GET_CO2:
-		data->data = sys_get_be16(&data->rd_data[2]);
+		if(data->heater_rd == true)
+		{
+			data->data = sys_get_be16(&data->rd_data[2]);
+		}
+		else
+		{
+			data->data = 0;
+		}
 		break;
 	case MHZ19B_CMD_IDX_GET_RANGE:
 		data->data = sys_get_be16(&data->rd_data[4]);
@@ -320,6 +327,15 @@ static void mhz19b_uart_isr(const struct device *uart_dev, void *user_data)
 	}
 }
 
+static void weather_dwork_handler(struct k_work *work)
+{
+	int ret = 0;
+
+	ARG_UNUSED(work);
+	
+	data.heater_rd = true;
+}
+
 static int mhz19b_init(const struct device *dev)
 {
 	struct mhz19b_data *data = dev->data;
@@ -335,7 +351,7 @@ static int mhz19b_init(const struct device *dev)
 
 	k_sem_init(&data->rx_sem, 0, 1);
 	k_sem_init(&data->tx_sem, 1, 1);
-
+	k_work_init_delayable(&data->dwork,dwork_handler);
 	/* Configure default detection range */
 	ret = mhz19b_attr_full_scale_cfg(dev, cfg->range);
 	if (ret != 0) {
@@ -343,12 +359,13 @@ static int mhz19b_init(const struct device *dev)
 		return ret;
 	}
 
+	data->heater_rd=false;
 	/* Configure ABC logic */
 	ret = mhz19b_attr_abc_cfg(dev, cfg->abc_on);
 	if (ret != 0) {
 		LOG_ERR("Error setting default ABC %s", cfg->abc_on ? "on" : "off");
 	}
-
+	(void)k_work_reschedule(&data->dwork, DELAY_START);
 	return ret;
 }
 
