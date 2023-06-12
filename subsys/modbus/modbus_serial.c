@@ -294,10 +294,6 @@ static int modbus_rtu_rx_adu(struct modbus_context *ctx)
 	crc_idx = cfg->uart_buf_ctr - sizeof(uint16_t);
 
 	memcpy(ctx->rx_adu.data, data_ptr, ctx->rx_adu.length);
-	// for(int i = 0; i != crc_idx;i++)
-	// {
-	// 	printk("%d rd_data %x",i,cfg->uart_buf[i]);
-	// }
 	ctx->rx_adu.crc = sys_get_le16(&cfg->uart_buf[crc_idx]);
 	/* Calculate CRC over address, function code, and payload */
 	calc_crc = modbus_rtu_crc16(&cfg->uart_buf[0],
@@ -576,7 +572,7 @@ int modbus_serial_init(struct modbus_context *ctx,
 	case UART_CFG_PARITY_NONE:
 		/* Use of no parity requires 2 stop bits */
 		uart_cfg.parity = param.serial.parity;
-		uart_cfg.stop_bits = UART_CFG_STOP_BITS_2;
+		uart_cfg.stop_bits =UART_CFG_STOP_BITS_1;// UART_CFG_STOP_BITS_2;
 		break;
 	default:
 		return -EINVAL;
