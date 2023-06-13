@@ -1,0 +1,12 @@
+type of communication
+-cellular 
+-wifi
+-lora
+
+todo:
+gmoc hw_manage: macam mana utk take care nk guna selected type communication {cellular n wifi}
+lora_at driver: manage to connect
+lora data pass: how to get data to put lora struct {eg- gps,siesmic}
+done: decode temperature data and hummidity data show on lora at sample
+     - decode style using legacy string
+    

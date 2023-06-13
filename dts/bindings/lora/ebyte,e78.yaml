@@ -1,0 +1,13 @@
+# Copyright (c) 2022 G-Technologies Sdn. Bhd.
+# SPDX-License-Identifier: Apache-2.0
+
+description: GSM PPP modem
+
+compatible: "ebyte,e78"
+
+include: uart-device.yaml
+
+
+properties:
+ label:
+      required: true
