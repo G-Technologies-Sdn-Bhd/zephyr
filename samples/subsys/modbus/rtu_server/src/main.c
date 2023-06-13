@@ -126,18 +126,18 @@ void main(void)
 {
 	int err;
 
-	for (int i = 0; i < ARRAY_SIZE(led_dev); i++) {
-		if (!device_is_ready(led_dev[i].port)) {
-			LOG_ERR("LED%u GPIO device not ready", i);
-			return;
-		}
+	// for (int i = 0; i < ARRAY_SIZE(led_dev); i++) {
+	// 	if (!device_is_ready(led_dev[i].port)) {
+	// 		LOG_ERR("LED%u GPIO device not ready", i);
+	// 		return;
+	// 	}
 
-		err = gpio_pin_configure_dt(&led_dev[i], GPIO_OUTPUT_INACTIVE);
-		if (err != 0) {
-			LOG_ERR("Failed to configure LED%u pin", i);
-			return;
-		}
-	}
+	// 	err = gpio_pin_configure_dt(&led_dev[i], GPIO_OUTPUT_INACTIVE);
+	// 	if (err != 0) {
+	// 		LOG_ERR("Failed to configure LED%u pin", i);
+	// 		return;
+	// 	}
+	// }
 
 	if (init_modbus_server()) {
 		LOG_ERR("Modbus RTU server initialization failed");

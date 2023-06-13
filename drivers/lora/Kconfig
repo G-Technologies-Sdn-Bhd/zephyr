@@ -33,5 +33,7 @@ config LORA_INIT_PRIORITY
 	  System initialization priority for LoRa drivers.
 
 source "drivers/lora/Kconfig.sx12xx"
+source "drivers/lora/Kconfig.lora_at"
+
 
 endif # LORA
