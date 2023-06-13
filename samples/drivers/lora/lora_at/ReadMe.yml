@@ -1,0 +1,53 @@
+type of communication
+-cellular 
+-wifi
+-lora
+
+todo: 
+
+Example Decoded ASCII data from firmware:
+"025400000000000000000000002200000000
+780300000000ffff9bc700000000564000000
+000000000000000000000000000d1041b5500
+0000000000000000110000000000000000000
+0000000000000000000000000000000000000
+00000000000000000000000"
+
+gmoc hw_manager: - how to take care selected type communication {cellular n wifi}
+          now:      - currently bypass hw_manage which is not good hardfault line 160|250
+
+telemetry: -need to add lora transport 
+
+rb: -did not not know how yc store data probably in json
+    -for lora need to modify it because it store in string 
+
+identify: need to update sn to lora DEVEUI config
+
+lora_at driver: -manage to join device to notify other modules
+                -take care of error like cant send 
+          now:  -due to ebyte reply send start with "OK+RECV:2,00,00" is unsual like gsm and esp  
+                
+gps driver for lora: -currently gps is depend on gps ec21 
+                     -need to create gps that depend on loRa driver 
+                     /*No hw was provided yet*/
+location compoent: need to update to after gps driver for lora is finish
+
+timesync: -due cant obtain datetime, we need to depend on gps (wait for gps driver first) 
+
+#Software/Sever#
+chripstack server: -think of did need to add new device every time power new device 
+                   -yes like i said before doenst to add sn on lora string but we need to set up device on chripstack applcation 
+
+nodered:  -decode lora data to string 
+          -do one example to deciper data to real data eg - battery voltage("0254" to 0.596 V) 
+
+done :lora data pass: how to get data to put lora struct {eg- gps,siesmic}
+done: modify sbiryb module to send using lora 
+done: -decode temperature data and hummidity data show on lora at sample
+     - decode style using legacy string
+     - make macro "roughly" structure for lora
+     -give syafiq to creating new module that not using sList like smp
+      instead using function call
+
+
+    

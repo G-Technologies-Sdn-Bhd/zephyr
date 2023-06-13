@@ -87,8 +87,13 @@ zephyr_udc0: &usb {
 
 &usart1 {
 	pinctrl-0 = <&usart1_tx_pc4 &usart1_rx_pc5>;
-	current-speed = <115200>;
+	current-speed = <9600>;
 	status = "okay";
+	lorae78{
+		compatible = "ebyte,e78";
+		label = "lora_e78";
+		status = "okay";
+	};
 };
 
 &usart2 {
@@ -127,6 +132,12 @@ zephyr_udc0: &usb {
 	pinctrl-0 = <&i2c1_scl_pb8 &i2c1_sda_pb9>;
 	status = "okay";
 	clock-frequency = <I2C_BITRATE_FAST>;
+	sht3xd@44 {
+		compatible = "sensirion,sht3xd";
+		reg = <0x44>;
+		label = "SHT3XD";
+		// alert-gpios = <&gpio1 10 GPIO_ACTIVE_HIGH>;
+	};
 };
 
 &i2c2 {
