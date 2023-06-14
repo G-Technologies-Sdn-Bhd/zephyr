@@ -1,9 +1,16 @@
 /*
- * Copyright (c) 2019 Tobias Svehagen
- * Copyright (c) 2020 Grinn
+ * Copyright (c) 2021-2022 G-Technologies Sdn. Bhd. - All Rights Reserved
  *
- * SPDX-License-Identifier: Apache-2.0
+ * Unauthorized copying and distributing of this file, via any medium is
+ * strictly prohibited.
+ *
+ * If received in error, please contact G-Technologies Sdn. Bhd. at
+ * info@gtsb.com.my, quoting the name of the sender and the addressee, then
+ * delete it from your system.
+ *
+ * Proprietary and confidential
  */
+
 
 #define DT_DRV_COMPAT ebyte_e78
 #include <logging/log.h>
@@ -23,7 +30,7 @@ LOG_MODULE_REGISTER(loraat, CONFIG_LORA_LOG_LEVEL);
 #include <drivers/modem/quectel.h>
 #include <drivers/uart.h>
 #include <drivers/console/uart_mux.h>
-
+#include"drivers/lora_at.h"
 #include "gsm_ppp.h"
 #include "modem_context.h"
 #include "modem_iface_uart.h"
@@ -31,8 +38,6 @@ LOG_MODULE_REGISTER(loraat, CONFIG_LORA_LOG_LEVEL);
 #include "../console/gsm_mux.h"
 #include <stdio.h>
 #include <time.h>
-
-// #include "lora_at.h"
 
 #define LORA_AT_UART_NODE                   DT_INST_BUS(0)
 #define LORA_AT_CMD_READ_BUF                128
@@ -49,6 +54,13 @@ LOG_MODULE_REGISTER(loraat, CONFIG_LORA_LOG_LEVEL);
 #define NBTRIALS 2
 
 #define A_PPP_MRU 1500
+#define APPKEY CONFIG_LORA_AT_APPKEY
+#define APPEUI CONFIG_LORA_AT_APPEUI
+enum lora_data_flag{
+	LORA_CONNECTING = BIT(1),
+	LORA_CONNECTED = BIT(2),
+};
+
 static struct lora_modem{
 	const struct device *dev;
 	
@@ -76,6 +88,7 @@ static struct lora_modem{
 	struct k_work_delayable rssi_work_handle;
 	struct gsm_ppp_modem_info minfo;
 	bool conn_status;
+	uint8_t flags;
 	// struct net_if *iface;
 }lora;
 
@@ -84,16 +97,29 @@ NET_BUF_POOL_DEFINE(lora_at_recv_pool, LORA_AT_RECV_MAX_BUF, LORA_AT_RECV_BUF_SI
 K_KERNEL_STACK_DEFINE(lora_at_rx_stack, LORA_AT_RX_STACK_SIZE);
 K_KERNEL_STACK_DEFINE(lora_at_workq_stack, LORA_AT_WORKQ_STACK_SIZE);
 
-// struct lora_at lora_at_data_drv;
+int LORA_MGMT_RAISE_CONNECT_RESULT_EVENT(void)
+{
+	if(lora.conn_status == true)
+	{
+		return 0;
+	}
+	return -1;
+} 
+static inline bool lora_flag_set(struct lora_modem *dev,uint8_t flags)
+{
+	dev->flags |= flags;
+}
 
-// static inline int lora_at_work_reschedule(struct k_work_delayable *dwork, k_timeout_t delay)
-// {
-// 	if (lora_at.workq_plug) {
-// 		return 0;
-// 	}
+static inline void lora_flags_clear(struct lora_modem *dev, uint8_t flags)
+{
+	dev->flags &= (~flags);
+}
 
-// 	return k_work_reschedule_for_queue(&lora_at.workq, dwork, delay);
-// }
+static inline bool lora_flags_are_set(struct lora_modem *dev, uint8_t flags)
+{
+	return (dev->flags & flags) != 0;
+}
+
 
 static inline void lora_at_lock(struct lora_modem *lora)
 {
@@ -108,13 +134,10 @@ static inline void lora_at_unlock(struct lora_modem *lora)
 
 	__ASSERT(ret == 0, "%s failed: %d", "k_mutex_unlock", ret);
 }
-// static const struct lora_mgmt lora_api = {
-	
-// };
 
 static void lora_at_rx(struct lora_modem *lora)
 {
-	// LOG_DBG("starting");
+	LOG_DBG("starting");
 	
 	while (true) {
 		(void)k_sem_take(&lora->lora_at_data.rx_sem, K_FOREVER);
@@ -125,12 +148,12 @@ static void lora_at_rx(struct lora_modem *lora)
 }
 MODEM_CMD_DEFINE(lora_cmd_ok)
 {
+	LOG_DBG("OK");
 	modem_cmd_handler_set_error(data, 0);
-	LOG_DBG("ok");
-
 	k_sem_give(&lora.sem_response);
 	return 0;
 }
+
 MODEM_CMD_DEFINE(lora_cmd_error)
 {
 	modem_cmd_handler_set_error(data, -EINVAL);
@@ -204,16 +227,12 @@ static const struct setup_cmd setup_modem_info_cmds[] ={
 	SETUP_CMD("AT+CGMM?", "+CGMM=", on_cmd_atcmdinfo_model, 0U, ""),
 	SETUP_CMD("AT+CGMR?", "+CGMR=", on_cmd_atcmdinfo_revision, 0U, ""),
 	SETUP_CMD("AT+CGSN?", "+CGSN=", on_cmd_atcmdinfo_imei, 0U, ""),
-	// SETUP_CMD("AT+CCLASS=0","+CCLASS:",on_cmd_atcmdinfo_class, 0U, ""),
 };
 
 static int lora_query_modem_info(struct lora_modem *lora)
 {
 	int ret;
 
-	// if (gsm->modem_info_queried) {
-	// 	return 0;
-	// }
 	ret =  modem_cmd_handler_setup_cmds(&lora->context.iface,
 					    &lora->context.cmd_handler,
 					    setup_modem_info_cmds,
@@ -225,69 +244,50 @@ static int lora_query_modem_info(struct lora_modem *lora)
 		return ret;
 	}
 
-	// gsm->modem_info_queried = true;
-
 	return 0;
 }
-// static const struct modem_cmd read_joinmod_cmd =
-// MODEM_CMD_ARGS_MAX("+COPS:", on_cmd_atcmdjoin, 1U, 4U, ",");
-
-// /*
-//  * Handler: +COPS: <mode>[0],<format>[1],<oper>[2]
-//  */
-// MODEM_CMD_DEFINE(on_cmd_atcmdjoin)
-// {
-// size_t out_len;
-
-// 	out_len = net_buf_linearize(lora.minfo.mdm_imei, sizeof(lora.minfo.mdm_imei) - 1,
-// 				    data->rx_buf, 0, len);
-// 	lora.minfo.mdm_imei[out_len] = '\0';
-// 	LOG_INF(": %s", log_strdup(lora.minfo.mdm_imei));
-
-// 	return 0;
-// }
 
 MODEM_CMD_DEFINE(on_cmd_atcmdjoin)
 {
+	struct lora_modem *dev = CONTAINER_OF(data,struct lora_modem,
+						cmd_handler_data);
+
 	modem_cmd_handler_set_error(data, 0);
-	LOG_INF("Successfully Join");
+	
+		if(lora_flags_are_set(dev,LORA_CONNECTED)){
+			return 0;
+		}
+	
+	lora_flag_set(dev,LORA_CONNECTED);
+	LOG_INF("LORA CONNECTED");
 	lora.conn_status = true;
+
 	k_sem_give(&lora.sem_response);
 	return 0;
 }
+
 static const struct setup_cmd setup_modem_join[] ={
 	SETUP_CMD_NOHANDLE("AT+CCLASS=0"),
-	// SETUP_CMD("AT+CCLASS=0","+CCLASS:",on_cmd_atcmdinfo_class, 0U, ""),
 	SETUP_CMD_NOHANDLE("AT+CJOINMODE=0"),
 	SETUP_CMD_NOHANDLE("AT+CJOIN=1,1,8,8"),
-	// SETUP_CMD_NOHANDLE("AT+CJOIN=1,0,8,8","",on_cmd_atcmdjoin,3U,","),
 };
-
 
 static const struct modem_cmd response_cmds[] = {
 	MODEM_CMD("OK", lora_cmd_ok, 0U, ""),
 	MODEM_CMD("+CJOIN", on_cmd_atcmdjoin, 0U, ""),
 	MODEM_CMD("ERROR", lora_cmd_error, 0U, ""),
-	// MODEM_CMD()
 };
+
 static int lora_at_init(const struct device *dev)
 {
 	struct lora_modem *lora = dev->data;
-	static const struct setup_cmd setup_cmds[] = {
-		SETUP_CMD_NOHANDLE("AT"),
-		/* turn off echo */
-		// SETUP_CMD_NOHANDLE("ATE0"),
-		};
-	int r;
-	// LOG_DBG("Lora at (%p)", lora);
-	
+	int r;	
 	lora->dev = dev;
 	
 	(void)k_mutex_init(&lora->lock);
 
 	lora->cmd_handler_data.cmds[CMD_RESP] = response_cmds;
 	lora->cmd_handler_data.cmds_len[CMD_RESP] = ARRAY_SIZE(response_cmds);
-	// lora_->cmd_handler_data.cmds[CMD_UNSOL] = unsol_cmds;
 	// lora->cmd_handler_data.cmds_len[CMD_UNSOL] = ARRAY_SIZE(unsol_cmds);
 	lora->cmd_handler_data.match_buf = &lora->cmd_match_buf[0];
 	lora->cmd_handler_data.match_buf_len = sizeof(lora->cmd_match_buf);
@@ -315,17 +315,17 @@ static int lora_at_init(const struct device *dev)
 	lora->lora_at_data.hw_flow_control = DT_PROP(LORA_AT_UART_NODE, hw_flow_control);
 	lora->lora_at_data.rx_rb_buf = &lora->lora_at_rx_rb_buf[0];
 	lora->lora_at_data.rx_rb_buf_len = sizeof(lora->lora_at_rx_rb_buf);
-
+	
 	r = modem_iface_uart_init(&lora->context.iface, &lora->lora_at_data,
 				DEVICE_DT_GET(LORA_AT_UART_NODE));
 	if (r < 0) {
-		// LOG_DBG("iface uart error %d", r);
+		LOG_DBG("iface uart error %d", r);
 		return r;
 	}
 
 	r = modem_context_register(&lora->context);
 	if (r < 0) {
-		// LOG_DBG("context error %d", r);
+		LOG_DBG("context error %d", r);
 		return r;
 	}
 
@@ -341,28 +341,60 @@ static int lora_at_init(const struct device *dev)
 			   K_PRIO_COOP(7), NULL);
 	k_thread_name_set(&lora->workq.thread, "lora_at_workq");
 
-r =   modem_cmd_handler_setup_cmds(&lora->context.iface,
-					&lora->context.cmd_handler,
-					setup_modem_join,
-					ARRAY_SIZE(setup_modem_join),
-					&lora->sem_response,
-					LORA_AT_CMD_SETUP_TIMEOUT);
 
-r = lora_query_modem_info(lora);
-k_msleep(5000);
+	r = lora_query_modem_info(lora);
+	k_msleep(5000);
 	return 0;
-	// gsm_ppp_start(dev);
+	
 }
 
-int lora_at_config(struct lora_modem *lora)
+int lora_at_config(const struct device *dev,char *data)
 {
-	int ret ;
-	ret =  modem_cmd_handler_setup_cmds(&lora->context.iface,
-					&lora->context.cmd_handler,
+	int ret;
+	
+	char cdeveui[sizeof("AT+CDEVEUI=\"#################\"")] = {0};
+	
+	snprintk(cdeveui, sizeof(cdeveui), "AT+CDEVEUI=000000000%d",data);
+	// LOG_INF("%s",log_strdup(cdeveui));
+	ret = modem_cmd_send(&lora.context.iface,
+				&lora.context.cmd_handler,
+				NULL, 0U,
+				// "AT+CAPPKEY=CA1F35221765D6C4499EDBCADA383764",
+				"AT+CAPPKEY="APPKEY,				
+				&lora.sem_response,
+				LORA_AT_CMD_SETUP_TIMEOUT);
+	ret = modem_cmd_send(&lora.context.iface,
+				&lora.context.cmd_handler,
+				NULL, 0U,
+				// "AT+CAPPEUI=0000000000000000",
+				 "AT+CAPPEUI="APPEUI,
+				&lora.sem_response,
+				LORA_AT_CMD_SETUP_TIMEOUT);
+	ret = modem_cmd_send(&lora.context.iface,
+			&lora.context.cmd_handler,
+			NULL, 0U,
+			// "AT+CDEVEUI=1000000000000001",//1000000000000011",
+			cdeveui,
+			&lora.sem_response,
+			LORA_AT_CMD_SETUP_TIMEOUT);
+	ret = modem_cmd_send(&lora.context.iface,
+			&lora.context.cmd_handler,
+			NULL, 0U,
+			"AT+CFREQBANDMASK=0002",
+			&lora.sem_response,
+			LORA_AT_CMD_SETUP_TIMEOUT);
+
+	ret =  modem_cmd_handler_setup_cmds(&lora.context.iface,
+					&lora.context.cmd_handler,
 					setup_modem_join,
 					ARRAY_SIZE(setup_modem_join),
-					&lora->sem_response,
+					&lora.sem_response,
 					LORA_AT_CMD_SETUP_TIMEOUT);
+	if(lora.conn_status != true)
+	{
+			lora.conn_status= false;
+	}				
+	
 	return ret;
 }
 
@@ -370,17 +402,26 @@ int lora_at_config(struct lora_modem *lora)
 // 	SETUP_CMD_NOHANDLE("AT+DTRX="), 1,2,3,112233
 // 	// SETUP_CMD("AT+CJOIN=1,0,8,8","",on_cmd_atcmdjoin,3U,","),
 // };
+
+MODEM_CMD_DEFINE(on_cmd_sock_readdata)
+{
+	LOG_INF("ssssssssssssssssssssssss");
+}
 int lora_at_send(const struct device *dev, char *data,
 		     uint32_t data_len)
 {
 	int  ret;
 	if(lora.conn_status == true)
 	{
-		char buf[sizeof("AT+DTRX=\"#\",\"#\",\"##\",\"#################\"")] = {0};
+		/* Modem command to read the data. */
+	// struct modem_cmd data_cmd[] = { MODEM_CMD_DIRECT("OK+RECV", on_cmd_sock_readdata) };
+
+		/*Maximum data is 255*/
+		char buf[sizeof("AT+DTRX=\"#\",\"#\",\"##\",\"#########################################################################################################################\"")] = {0};
 		snprintk(buf, sizeof(buf), "AT+DTRX=%d,%d,%d,%s", CONFIRM,NBTRIALS,data_len,data);
 		ret = modem_cmd_send(&lora.context.iface,
 					&lora.context.cmd_handler,
-					NULL, 0U,
+					NULL,0U,
 					buf,
 					&lora.sem_response,
 					LORA_AT_CMD_SETUP_TIMEOUT);

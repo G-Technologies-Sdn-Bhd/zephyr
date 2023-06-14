@@ -12,6 +12,18 @@ menuconfig LORA_AT
 	  Enable EByte AT Command lora driver.
 if LORA_AT
 
+config LORA_AT_APPKEY
+	string "Appkey that got from server"
+	default "ca1f35221765d6c4499edbcada383764"
+	help
+	  APPKEY
+
+config LORA_AT_APPEUI
+	string "APPEUI Server"
+	default "0000000000000000"
+	help
+	  APPEUI
+
 config LORA_AT_RX_STACK_SIZE
 	int "Stack size for the EByte lora wifi driver RX thread"
 	default 1024
