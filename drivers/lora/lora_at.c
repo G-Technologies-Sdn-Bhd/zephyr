@@ -227,6 +227,7 @@ static const struct setup_cmd setup_modem_info_cmds[] ={
 	SETUP_CMD("AT+CGMM?", "+CGMM=", on_cmd_atcmdinfo_model, 0U, ""),
 	SETUP_CMD("AT+CGMR?", "+CGMR=", on_cmd_atcmdinfo_revision, 0U, ""),
 	SETUP_CMD("AT+CGSN?", "+CGSN=", on_cmd_atcmdinfo_imei, 0U, ""),
+	SETUP_CMD_NOHANDLE("AT+CJOIN=1,1,8,8"),
 };
 
 static int lora_query_modem_info(struct lora_modem *lora)
@@ -417,7 +418,10 @@ int lora_at_send(const struct device *dev, char *data,
 	// struct modem_cmd data_cmd[] = { MODEM_CMD_DIRECT("OK+RECV", on_cmd_sock_readdata) };
 
 		/*Maximum data is 255*/
-		char buf[sizeof("AT+DTRX=\"#\",\"#\",\"##\",\"#########################################################################################################################\"")] = {0};
+		char buf[sizeof(
+					"AT+DTRX=\"#\",\"#\",\"###\",\"###########################################################################################################################################################################################################################################################\"")] = {
+					0
+				};
 		snprintk(buf, sizeof(buf), "AT+DTRX=%d,%d,%d,%s", CONFIRM,NBTRIALS,data_len,data);
 		ret = modem_cmd_send(&lora.context.iface,
 					&lora.context.cmd_handler,
@@ -425,7 +429,7 @@ int lora_at_send(const struct device *dev, char *data,
 					buf,
 					&lora.sem_response,
 					LORA_AT_CMD_SETUP_TIMEOUT);
-		
+		LOG_INF("sendinggggg");
 	}else{
 		LOG_INF("No connection");
 		return -1;
