@@ -37,13 +37,14 @@ LOG_MODULE_REGISTER(loraat, CONFIG_LORA_LOG_LEVEL);
 #include "modem_cmd_handler.h"
 #include "../console/gsm_mux.h"
 #include <stdio.h>
+#include <pm/pm.h>
 #include <time.h>
 
 #define LORA_AT_UART_NODE                   DT_INST_BUS(0)
 #define LORA_AT_CMD_READ_BUF                128
-#define LORA_AT_CMD_AT_TIMEOUT              K_SECONDS(2)
-#define LORA_AT_CMD_SETUP_TIMEOUT           K_SECONDS(6)
-#define LORA_AT_RX_STACK_SIZE               512//CONFIG_MODEM_LORA_AT_RX_STACK_SIZE
+#define LORA_AT_CMD_AT_TIMEOUT              K_SECONDS(10)
+#define LORA_AT_CMD_SETUP_TIMEOUT           K_SECONDS(10)
+#define LORA_AT_RX_STACK_SIZE               1024//512//CONFIG_MODEM_LORA_AT_RX_STACK_SIZE
 #define LORA_AT_WORKQ_STACK_SIZE           768//CONFIG_MODEM_LORA_AT_WORKQ_STACK_SIZE
 #define LORA_AT_RECV_MAX_BUF                30
 #define LORA_AT_RECV_BUF_SIZE               128
@@ -63,7 +64,8 @@ enum lora_data_flag{
 
 static struct lora_modem{
 	const struct device *dev;
-	
+	struct net_if *net_iface;
+
 	struct modem_context context;
 
 	struct k_mutex lock;
@@ -89,6 +91,11 @@ static struct lora_modem{
 	struct gsm_ppp_modem_info minfo;
 	bool conn_status;
 	uint8_t flags;
+	enum lora_state{
+		LORA_START,
+		LORA_STOP,
+		LORA_STATE_ERROR,
+	}state;
 	// struct net_if *iface;
 }lora;
 
@@ -96,6 +103,7 @@ NET_BUF_POOL_DEFINE(lora_at_recv_pool, LORA_AT_RECV_MAX_BUF, LORA_AT_RECV_BUF_SI
 		    0, NULL);
 K_KERNEL_STACK_DEFINE(lora_at_rx_stack, LORA_AT_RX_STACK_SIZE);
 K_KERNEL_STACK_DEFINE(lora_at_workq_stack, LORA_AT_WORKQ_STACK_SIZE);
+
 
 int LORA_MGMT_RAISE_CONNECT_RESULT_EVENT(void)
 {
@@ -146,9 +154,27 @@ static void lora_at_rx(struct lora_modem *lora)
 						 &lora->context.iface);
 	}
 }
+MODEM_CMD_DEFINE(lora_cmd_rev)
+{
+	// modem_cmd_handler_set_error(data, 0);
+	LOG_INF("REV");
+	k_sem_give(&lora.sem_response);
+	return 0;
+}
 MODEM_CMD_DEFINE(lora_cmd_ok)
 {
 	LOG_DBG("OK");
+	// MODEM_CMD("+RECV", lora_cmd_rev, 0U, "")
+	size_t out_len;
+	char md[7];
+	char md2[7];
+	out_len = net_buf_linearize(md,
+				    sizeof(md) -1,
+				    data->rx_buf, 0, len);
+	md[out_len+1] = '\0';
+
+	LOG_INF("MD:%s", log_strdup(md));
+
 	modem_cmd_handler_set_error(data, 0);
 	k_sem_give(&lora.sem_response);
 	return 0;
@@ -157,7 +183,7 @@ MODEM_CMD_DEFINE(lora_cmd_ok)
 MODEM_CMD_DEFINE(lora_cmd_error)
 {
 	modem_cmd_handler_set_error(data, -EINVAL);
-	LOG_DBG("ok");
+	LOG_ERR("ERR");
 	k_sem_give(&lora.sem_response);
 	return 0;
 }
@@ -177,7 +203,7 @@ MODEM_CMD_DEFINE(on_cmd_atcmdinfo_manufacturer)
 				    data->rx_buf, 0, len);
 	lora.minfo.mdm_manufacturer[out_len+1] = '\0';
 	LOG_INF("Manufacturer: %s", log_strdup(lora.minfo.mdm_manufacturer));
-
+k_sem_give(&lora.sem_response);
 	return 0;
 }
 
@@ -191,7 +217,7 @@ MODEM_CMD_DEFINE(on_cmd_atcmdinfo_model)
 				    data->rx_buf, 0, len);
 	lora.minfo.mdm_model[out_len] = '\0';
 	LOG_INF("Model: %s", log_strdup(lora.minfo.mdm_model));
-
+	k_sem_give(&lora.sem_response);
 	return 0;
 }
 /* Handler: <rev> */
@@ -204,7 +230,7 @@ MODEM_CMD_DEFINE(on_cmd_atcmdinfo_revision)
 				    data->rx_buf, 0, len);
 	lora.minfo.mdm_revision[out_len] = '\0';
 	LOG_INF("Revision: %s", log_strdup(lora.minfo.mdm_revision));
-
+	k_sem_give(&lora.sem_response);
 	return 0;
 }
 
@@ -217,9 +243,16 @@ MODEM_CMD_DEFINE(on_cmd_atcmdinfo_imei)
 				    data->rx_buf, 0, len);
 	lora.minfo.mdm_imei[out_len] = '\0';
 	LOG_INF("IMEI: %s", log_strdup(lora.minfo.mdm_imei));
-
+	k_sem_give(&lora.sem_response);
 	return 0;
 }
+
+MODEM_CMD_DEFINE(on_cmd_setup_no_handler)
+{
+	k_sem_give(&lora.sem_response);
+	return 0;
+}
+
 
 static const struct setup_cmd setup_modem_info_cmds[] ={
 		/* query modem info */
@@ -227,7 +260,7 @@ static const struct setup_cmd setup_modem_info_cmds[] ={
 	SETUP_CMD("AT+CGMM?", "+CGMM=", on_cmd_atcmdinfo_model, 0U, ""),
 	SETUP_CMD("AT+CGMR?", "+CGMR=", on_cmd_atcmdinfo_revision, 0U, ""),
 	SETUP_CMD("AT+CGSN?", "+CGSN=", on_cmd_atcmdinfo_imei, 0U, ""),
-	SETUP_CMD_NOHANDLE("AT+CJOIN=1,1,8,8"),
+	SETUP_CMD("AT+CJOIN=1,1,8,8","OK",on_cmd_setup_no_handler,0U,""),
 };
 
 static int lora_query_modem_info(struct lora_modem *lora)
@@ -238,7 +271,8 @@ static int lora_query_modem_info(struct lora_modem *lora)
 					    &lora->context.cmd_handler,
 					    setup_modem_info_cmds,
 					    ARRAY_SIZE(setup_modem_info_cmds),
-					    &lora->sem_response,
+					    // NULL,
+						&lora->sem_response,
 					    K_MSEC(1000));
 
 	if (ret < 0) {
@@ -261,6 +295,7 @@ MODEM_CMD_DEFINE(on_cmd_atcmdjoin)
 	
 	lora_flag_set(dev,LORA_CONNECTED);
 	LOG_INF("LORA CONNECTED");
+	
 	lora.conn_status = true;
 
 	k_sem_give(&lora.sem_response);
@@ -268,15 +303,16 @@ MODEM_CMD_DEFINE(on_cmd_atcmdjoin)
 }
 
 static const struct setup_cmd setup_modem_join[] ={
-	SETUP_CMD_NOHANDLE("AT+CCLASS=0"),
-	SETUP_CMD_NOHANDLE("AT+CJOINMODE=0"),
-	SETUP_CMD_NOHANDLE("AT+CJOIN=1,1,8,8"),
+	SETUP_CMD("AT+CCLASS=0","OK",on_cmd_setup_no_handler,0U,""),
+	SETUP_CMD("AT+CJOINMODE=0","OK",on_cmd_setup_no_handler,0U,""),
+	SETUP_CMD("AT+CJOIN=1,1,8,8","OK",on_cmd_setup_no_handler,0U,""),
 };
 
 static const struct modem_cmd response_cmds[] = {
-	MODEM_CMD("OK", lora_cmd_ok, 0U, ""),
+	MODEM_CMD("OK+RECV", lora_cmd_rev, 0U,""),
+	// MODEM_CMD("OK", lora_cmd_ok, 0U,""),
 	MODEM_CMD("+CJOIN", on_cmd_atcmdjoin, 0U, ""),
-	MODEM_CMD("ERROR", lora_cmd_error, 0U, ""),
+	MODEM_CMD("ERR", lora_cmd_error, 0U, ""),
 };
 
 static int lora_at_init(const struct device *dev)
@@ -289,6 +325,7 @@ static int lora_at_init(const struct device *dev)
 
 	lora->cmd_handler_data.cmds[CMD_RESP] = response_cmds;
 	lora->cmd_handler_data.cmds_len[CMD_RESP] = ARRAY_SIZE(response_cmds);
+	// gsm->cmd_handler_data.cmds[CMD_UNSOL] = unsol_cmds;
 	// lora->cmd_handler_data.cmds_len[CMD_UNSOL] = ARRAY_SIZE(unsol_cmds);
 	lora->cmd_handler_data.match_buf = &lora->cmd_match_buf[0];
 	lora->cmd_handler_data.match_buf_len = sizeof(lora->cmd_match_buf);
@@ -412,30 +449,32 @@ int lora_at_send(const struct device *dev, char *data,
 		     uint32_t data_len)
 {
 	int  ret;
+	struct lora_modem *d = dev->data;
 	if(lora.conn_status == true)
 	{
 		/* Modem command to read the data. */
-	// struct modem_cmd data_cmd[] = { MODEM_CMD_DIRECT("OK+RECV", on_cmd_sock_readdata) };
-
+	// struct modem_cmd cmd = MODEM_CMD("OK+RECV:", on_cmd_sock_readdata, 0U, "");
+	// MODEM_CMD("OK+RECV", on_cmd_sock_readdata,0U,"");
+	
 		/*Maximum data is 255*/
 		char buf[sizeof(
 					"AT+DTRX=\"#\",\"#\",\"###\",\"###########################################################################################################################################################################################################################################################\"")] = {
 					0
 				};
+		// char buf[data_len_];
 		snprintk(buf, sizeof(buf), "AT+DTRX=%d,%d,%d,%s", CONFIRM,NBTRIALS,data_len,data);
 		ret = modem_cmd_send(&lora.context.iface,
 					&lora.context.cmd_handler,
-					NULL,0U,
+					"",0U,
 					buf,
 					&lora.sem_response,
 					LORA_AT_CMD_SETUP_TIMEOUT);
-		LOG_INF("sendinggggg");
 	}else{
 		LOG_INF("No connection");
 		return -1;
 	}
 
-	return 0;
+	return ret;
 }
 
 
@@ -446,6 +485,40 @@ static const struct lora_driver_api lora_at_api = {
 	// .recv = lora_at_recv,
 	// .test_cw = lora_at_test_cw,
 };
+
+void lora_start(const struct device *dev)
+{
+	struct lora_modem *lora = dev->data;
+	lora_at_lock(lora);
+
+	if(lora->state !=LORA_STOP)
+	{
+		LOG_ERR("lora_at is already %s", "started");
+		goto unlock;
+	}
+
+	int r = modem_iface_uart_init(&lora->context.iface, &lora->lora_at_data,
+				DEVICE_DT_GET(LORA_AT_UART_NODE));
+	if (r < 0) {
+		LOG_ERR("iface uart error %d", r);
+		lora->state = LORA_STATE_ERROR;
+		goto unlock;
+	}
+unlock:
+lora_at_unlock(lora);
+}
+
+void lora_stop(const struct device *dev)
+{
+	struct lora_modem *lora = dev->data;
+	// lora_at_lock(lora);
+
+	if(lora->state !=LORA_STOP)
+	{
+		LOG_ERR("lora_at is already %s", "started");
+		return;
+	}
+}
 
 DEVICE_DT_DEFINE(DT_INST(0, ebyte_e78), lora_at_init, NULL, &lora, NULL,
 		 POST_KERNEL, CONFIG_LORA_INIT_PRIORITY,&lora_at_api);

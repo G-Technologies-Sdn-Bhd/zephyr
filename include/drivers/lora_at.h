@@ -17,96 +17,54 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-#include "components/power.h"
-#include "modules/cms.h"
-
-#define DECODE(buffer, buffer_size, merged_buffer, merged_buffer_size) \
-    size_t index = 0; \
-    for (size_t i = 0; i < buffer_size; i++) { \
-        /* Note: if you want to send hex, use "%02x"; if you want to send in decimal, use "%02d" */ \
-        index += snprintf(merged_buffer + index, merged_buffer_size - index, "%06d", buffer[i]); \
-        if (index >= merged_buffer_size - 1) { \
-            /* The merged buffer is full, exit the loop to avoid overflow */ \
-            break; \
-        } \
-    } \
-    merged_buffer[index] = '\0'
-
 
 int LORA_MGMT_RAISE_CONNECT_RESULT_EVENT(void);
 
-#define MAX_ASCII_LEN 230
+#define MAX_ASCII_LEN 256
 
-struct lora_data
+struct sensorData
 {
-	
-   struct c_pwr_fields pwr;
-   struct m_cms_fields cms;
-    uint8_t msg_mode;
-
-	/* Report and Event type */
-	uint8_t rprt_evt_type;
-
-	/* Event Date */
-	uint8_t evt_day;
-	uint8_t evt_month;
-	uint8_t evt_year;
-
-	/* Event Time */
-	uint8_t evt_hr;
-	uint8_t evt_min;
-	uint8_t evt_sec;
-
-	/* GSM connection status */
-	uint8_t gsm_conn_stat;
-
-	/* GSM RSSI */
-	uint8_t gsm_rssi;
-
-	/* GSM MCC */
-	uint32_t gsm_mcc; /* MKMK ROTO 8 */
-
-	/* GSM type */
-	char gsm_type; /* HSLOK EC21E MQTT */
-
-	/* Primary battery level */
-	uint16_t vmain;
-
-	/* Secondary battery level */
-	uint16_t vbat;
-
-	/* GPS status */
-	uint8_t gps_stat;
-
-	/* Latitude */
-	double gps_lat;
-
-	/* Longtitude */
-	double gps_lon;
-
-	/* GPS speed */
-	uint16_t gps_spd;
-
-	/* GPS course */
-	uint16_t gps_crs;
-
-	/* GPS odometer */
-	double gps_odo;
-
-	/* IGN status */
-	uint8_t ign_status;
-
-	uint8_t key_status;
-
-	uint32_t seq;
-
-	// uint32_t vsolar;
-	// uint32_t vsolar_batt;
-	uint32_t evt;
+	int64_t timestamp;
+	int vmain;
+	int v_phase1;
+	int v_phase2;
+	int v_phase3;
+	int i_phase1;
+	int i_phase2;
+	int i_phase3;
+	int p_phase1;
+	int p_phase2;
+	int p_phase3;
+	int swell_v1;
+	int swell_v2;
+	int swell_v3;
+	int swell_percentage1;
+	int swell_percentage2;
+	int swell_percentage3;
+	int current;
+	int active_power;
+	int active_total_energy;
+	int pf1;
+	int pf2;
+	int pf3;
+	uint64_t tm;
 };
-static struct lora_data LoRa;
+
+struct devInfo
+{
+	int64_t timestamp;
+	int vmain;
+	uint64_t tm;
+};
+static struct devInfo DevInfo;
+static struct sensorData SensorData;
 #ifdef __cplusplus
 }
 #endif
 
+int LORA_MGMT_RAISE_CONNECT_RESULT_EVENT(void);
+void lora_start(const struct device *dev);
+void lora_stop(const struct device *dev);
+// typedef void (*lora_at_callback_t)(uint8_t status);
+// lora_at_callback_t temp
 #endif	/* ZEPHYR_INCLUDE_DRIVERS_LORA_AT_H_ */
