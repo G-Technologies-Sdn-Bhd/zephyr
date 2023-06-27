@@ -157,7 +157,15 @@ static void lora_at_rx(struct lora_modem *lora)
 MODEM_CMD_DEFINE(lora_cmd_rev)
 {
 	// modem_cmd_handler_set_error(data, 0);
-	LOG_INF("REV");
+	size_t out_len;
+	char md[15];
+	out_len = net_buf_linearize(md,
+				    sizeof(md) -1,
+				    data->rx_buf, 0, len);
+	md[out_len+1] = '\0';
+
+	LOG_INF("REV--->:%s", log_strdup(md));
+	// LOG_INF("REV");
 	k_sem_give(&lora.sem_response);
 	return 0;
 }
