@@ -191,7 +191,16 @@ MODEM_CMD_DEFINE(lora_cmd_ok)
 MODEM_CMD_DEFINE(lora_cmd_error)
 {
 	modem_cmd_handler_set_error(data, -EINVAL);
-	LOG_ERR("ERR");
+	size_t out_len;
+	char md[20];
+	char md2[7];
+	out_len = net_buf_linearize(md,
+				    sizeof(md) -1,
+				    data->rx_buf, 0, len);
+	md[out_len+1] = '\0';
+
+	LOG_ERR("error:%s", log_strdup(md));
+	// LOG_ERR("ERR");
 	k_sem_give(&lora.sem_response);
 	return 0;
 }
