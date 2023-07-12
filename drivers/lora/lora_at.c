@@ -311,6 +311,7 @@ MODEM_CMD_DEFINE(on_cmd_atcmdjoin)
 		}
 	
 	lora_flag_set(dev,LORA_CONNECTED);
+	net_mgmt_event_notify_with_info(dev->net_iface,0);
 	LOG_INF("LORA CONNECTED");
 	
 	lora.conn_status = true;
@@ -465,8 +466,10 @@ MODEM_CMD_DEFINE(on_cmd_sock_readdata)
 int lora_at_send(const struct device *dev, char *data,
 		     uint32_t data_len)
 {
+	
 	int  ret;
 	struct lora_modem *d = dev->data;
+lora_at_lock(d);
 	if(lora.conn_status == true)
 	{
 		/* Modem command to read the data. */
@@ -474,15 +477,15 @@ int lora_at_send(const struct device *dev, char *data,
 	// MODEM_CMD("OK+RECV", on_cmd_sock_readdata,0U,"");
 	
 		/*Maximum data is 255*/
-		char buf[sizeof(
-					"AT+DTRX=\"#\",\"#\",\"###\",\"###########################################################################################################################################################################################################################################################\"")] = {
-					0
-				};
-		// char buf[data_len_];
+		// char buf[sizeof(
+		// 			"AT+DTRX=\"#\",\"#\",\"###\",\"###########################################################################################################################################################################################################################################################\"")] = {
+		// 			0
+		// 		};
+		char buf[data_len +19];
 		snprintk(buf, sizeof(buf), "AT+DTRX=%d,%d,%d,%s", CONFIRM,NBTRIALS,data_len,data);
 		ret = modem_cmd_send(&lora.context.iface,
 					&lora.context.cmd_handler,
-					"",0U,
+					NULL,0U,
 					buf,
 					&lora.sem_response,
 					LORA_AT_CMD_SETUP_TIMEOUT);
@@ -490,7 +493,7 @@ int lora_at_send(const struct device *dev, char *data,
 		LOG_INF("No connection");
 		return -1;
 	}
-
+lora_at_unlock(d);
 	return ret;
 }
 
