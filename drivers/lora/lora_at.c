@@ -158,13 +158,15 @@ MODEM_CMD_DEFINE(lora_cmd_rev)
 {
 	// modem_cmd_handler_set_error(data, 0);
 	size_t out_len;
-	char md[15];
+	char md[30];
 	out_len = net_buf_linearize(md,
 				    sizeof(md) -1,
 				    data->rx_buf, 0, len);
 	md[out_len+1] = '\0';
-
-	LOG_INF("REV--->:%s", log_strdup(md));
+	
+ 	char *dataString = malloc(strlen(md)+1);
+	strcpy(dataString,md);
+	LOG_INF("REV--->:%s", log_strdup(dataString));
 	// LOG_INF("REV");
 	k_sem_give(&lora.sem_response);
 	return 0;
