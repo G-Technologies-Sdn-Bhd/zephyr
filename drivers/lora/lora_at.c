@@ -39,6 +39,9 @@ LOG_MODULE_REGISTER(loraat, CONFIG_LORA_LOG_LEVEL);
 #include <stdio.h>
 #include <pm/pm.h>
 #include <time.h>
+#include <sys/byteorder.h>
+#include "lib/do_ctrl.h"
+
 
 #define LORA_AT_UART_NODE                   DT_INST_BUS(0)
 #define LORA_AT_CMD_READ_BUF                128
@@ -53,7 +56,6 @@ LOG_MODULE_REGISTER(loraat, CONFIG_LORA_LOG_LEVEL);
 #define LORA_AT_REGISTER_TIMEOUT            30//60
 #define CONFIRM 1
 #define NBTRIALS 2
-
 #define A_PPP_MRU 1500
 #define APPKEY CONFIG_LORA_AT_APPKEY
 #define APPEUI CONFIG_LORA_AT_APPEUI
@@ -73,7 +75,7 @@ static struct lora_modem{
 	struct modem_cmd_handler_data cmd_handler_data;
 	uint8_t cmd_match_buf[LORA_AT_CMD_READ_BUF];
 	struct k_sem sem_response;
-
+	uint64_t recv_data;
 	struct modem_iface_uart_data lora_at_data;
 	struct k_work_delayable lora_at_configure_work;
 	char lora_at_rx_rb_buf[A_PPP_MRU * 3];
@@ -154,20 +156,53 @@ static void lora_at_rx(struct lora_modem *lora)
 						 &lora->context.iface);
 	}
 }
+static int lora_atoi(const char *s, const int err_value,
+				const char *desc, const char *func)
+{
+	int ret;
+	char *endptr;
+
+	ret = (int)strtol(s, &endptr, 10);
+	if (!endptr || *endptr != '\0') {
+		LOG_ERR("bad %s '%s' in %s", log_strdup(s),
+			 log_strdup(desc), log_strdup(func));
+		return err_value;
+	}
+
+	return ret;
+}
+
+void convertStringToInt(const char *dataString, int *data) {
+    // Check for NULL pointer or empty string
+    if (dataString == NULL || dataString[0] == '\0') {
+        *data = 0; // Default to 0 in case of invalid input
+        return;
+    }
+
+    char *endptr;
+    *data = strtol(dataString, &endptr, 10);
+
+    // Check if conversion was successful
+    if (*endptr != '\0') {
+        // Handle conversion error, e.g., invalid characters in the input string
+        // You may add appropriate error handling based on your use case.
+        *data = 0; // Default to 0 in case of invalid input
+    }
+}
 MODEM_CMD_DEFINE(lora_cmd_rev)
 {
 	// modem_cmd_handler_set_error(data, 0);
 	size_t out_len;
-	char md[30];
+	char md[100];
+	
 	out_len = net_buf_linearize(md,
 				    sizeof(md) -1,
-				    data->rx_buf, 0, len);
-	md[out_len+1] = '\0';
-	
- 	char *dataString = malloc(strlen(md)+1);
-	strcpy(dataString,md);
-	LOG_INF("REV--->:%s", log_strdup(dataString));
-	// LOG_INF("REV");
+				    data->rx_buf,0,len);
+
+	md[out_len] = '\0';
+
+	LOG_INF("RECV:%s", log_strdup(md));
+
 	k_sem_give(&lora.sem_response);
 	return 0;
 }
@@ -301,10 +336,33 @@ static int lora_query_modem_info(struct lora_modem *lora)
 	return 0;
 }
 
+void lora_rejoin(void)
+{
+	int ret;
+
+	ret =modem_cmd_send(&lora.context.iface,
+			&lora.context.cmd_handler,
+			NULL, 0U,
+			"AT+CJOIN=1,1,8,8",
+			&lora.sem_response,
+			LORA_AT_CMD_SETUP_TIMEOUT);
+
+}
 MODEM_CMD_DEFINE(on_cmd_atcmdjoin)
 {
 	struct lora_modem *dev = CONTAINER_OF(data,struct lora_modem,
 						cmd_handler_data);
+
+	size_t out_len;
+	char status[20];
+	int ret;
+	
+	out_len = net_buf_linearize(status,
+				    sizeof(status) -1,
+				    data->rx_buf,0,len);
+
+	status[out_len] = '\0';
+
 
 	modem_cmd_handler_set_error(data, 0);
 	
@@ -314,8 +372,16 @@ MODEM_CMD_DEFINE(on_cmd_atcmdjoin)
 	
 	lora_flag_set(dev,LORA_CONNECTED);
 	net_mgmt_event_notify_with_info(dev->net_iface,0);
-	LOG_INF("LORA CONNECTED");
-	
+	// if (strcmp(log_strdup(item->name), "Sound") == 0)
+	if (strcmp(status, "OK") == 0){
+		LOG_INF("LORA CONNECTED %s",log_strdup(status));
+	}
+	else{
+		lora_rejoin();	
+		LOG_ERR("LORA FAILED %s",log_strdup(status));
+
+	}
+
 	lora.conn_status = true;
 
 	k_sem_give(&lora.sem_response);
@@ -331,7 +397,7 @@ static const struct setup_cmd setup_modem_join[] ={
 static const struct modem_cmd response_cmds[] = {
 	MODEM_CMD("OK+RECV", lora_cmd_rev, 0U,""),
 	// MODEM_CMD("OK", lora_cmd_ok, 0U,""),
-	MODEM_CMD("+CJOIN", on_cmd_atcmdjoin, 0U, ""),
+	MODEM_CMD("+CJOIN:", on_cmd_atcmdjoin, 0U, "OK"),
 	MODEM_CMD("ERR", lora_cmd_error, 0U, ""),
 };
 
@@ -373,7 +439,9 @@ static int lora_at_init(const struct device *dev)
 	lora->lora_at_data.hw_flow_control = DT_PROP(LORA_AT_UART_NODE, hw_flow_control);
 	lora->lora_at_data.rx_rb_buf = &lora->lora_at_rx_rb_buf[0];
 	lora->lora_at_data.rx_rb_buf_len = sizeof(lora->lora_at_rx_rb_buf);
-	
+// #if DT_NODE_HAS_STATUS(DT_NODELABEL(lora_pwr_en), okay)
+		TURN_DO_(lora_pwr_en, _ON);
+// #endif
 	r = modem_iface_uart_init(&lora->context.iface, &lora->lora_at_data,
 				DEVICE_DT_GET(LORA_AT_UART_NODE));
 	if (r < 0) {
@@ -398,9 +466,16 @@ static int lora_at_init(const struct device *dev)
 	k_work_queue_start(&lora->workq, lora_at_workq_stack, K_KERNEL_STACK_SIZEOF(lora_at_workq_stack),
 			   K_PRIO_COOP(7), NULL);
 	k_thread_name_set(&lora->workq.thread, "lora_at_workq");
+#if HAS_PWR_SRC || HAS_PWR_KEY
+	gsm->context.pins = modem_pins;
+	gsm->context.pins_len = ARRAY_SIZE(modem_pins);
+#endif
 
-
+	lora->conn_status = false;
 	r = lora_query_modem_info(lora);
+	// if(r!=0){
+	// 	sys_reboot(0);
+	// }
 	k_msleep(5000);
 	return 0;
 	
@@ -518,8 +593,11 @@ void lora_start(const struct device *dev)
 		LOG_ERR("lora_at is already %s", "started");
 		goto unlock;
 	}
-
-	int r = modem_iface_uart_init(&lora->context.iface, &lora->lora_at_data,
+	lora->state = LORA_START;
+// #if DT_NODE_HAS_STATUS(DT_NODELABEL(lora_pwr_en), okay)
+		TURN_DO_(lora_pwr_en, _ON);
+// #endif
+	int r = modem_iface_uart_init_dev(&lora->context.iface, //&lora->lora_at_data,
 				DEVICE_DT_GET(LORA_AT_UART_NODE));
 	if (r < 0) {
 		LOG_ERR("iface uart error %d", r);
@@ -535,12 +613,22 @@ void lora_stop(const struct device *dev)
 	struct lora_modem *lora = dev->data;
 	// lora_at_lock(lora);
 
-	if(lora->state !=LORA_STOP)
+	if(lora->state ==LORA_STOP)
 	{
-		LOG_ERR("lora_at is already %s", "started");
+		LOG_ERR("lora_at is already %s", "stop");
 		return;
 	}
+	if (lora->conn_status!=true)
+	{
+		LOG_ERR("lora_at is still  %s", "not connected");
+		return ;
+	}
+
+	TURN_DO_(lora_pwr_en, _OFF);
+	lora->state = LORA_STOP;
+
 }
+
 
 DEVICE_DT_DEFINE(DT_INST(0, ebyte_e78), lora_at_init, NULL, &lora, NULL,
 		 POST_KERNEL, CONFIG_LORA_INIT_PRIORITY,&lora_at_api);
