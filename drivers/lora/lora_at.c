@@ -369,7 +369,7 @@ MODEM_CMD_DEFINE(on_cmd_atcmdjoin)
 		if(lora_flags_are_set(dev,LORA_CONNECTED)){
 			return 0;
 		}
-	
+	TURN_DO_(green_led,_ON);
 	lora_flag_set(dev,LORA_CONNECTED);
 	net_mgmt_event_notify_with_info(dev->net_iface,0);
 	// if (strcmp(log_strdup(item->name), "Sound") == 0)
@@ -406,7 +406,7 @@ static int lora_at_init(const struct device *dev)
 	struct lora_modem *lora = dev->data;
 	int r;	
 	lora->dev = dev;
-	
+	TURN_DO_(blue_led,_OFF);
 	(void)k_mutex_init(&lora->lock);
 
 	lora->cmd_handler_data.cmds[CMD_RESP] = response_cmds;
@@ -566,6 +566,9 @@ lora_at_lock(d);
 					buf,
 					&lora.sem_response,
 					LORA_AT_CMD_SETUP_TIMEOUT);
+					// TURN_DO_(green_led,_ON);
+		
+				
 	}else{
 		LOG_INF("No connection");
 		return -1;
