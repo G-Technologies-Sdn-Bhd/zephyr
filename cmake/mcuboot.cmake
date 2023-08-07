@@ -17,8 +17,13 @@ function(zephyr_runner_file type path)
 endfunction()
 
 function(zephyr_mcuboot_tasks)
-  set(keyfile "${CONFIG_MCUBOOT_SIGNATURE_KEY_FILE}")
-  set(keyfile_enc "${CONFIG_MCUBOOT_ENCRYPTION_KEY_FILE}")
+if(IS_ABSOLUTE $ENV{MCUBOOT_SIGNATURE_KEY_FILE})  
+set(keyfile "$ENV{MCUBOOT_SIGNATURE_KEY_FILE}")
+message("Using Env path")
+else()
+set(keyfile "${CONFIG_MCUBOOT_SIGNATURE_KEY_FILE}")
+endif()
+set(keyfile_enc "${CONFIG_MCUBOOT_ENCRYPTION_KEY_FILE}")
 
   # Check for misconfiguration.
   if("${keyfile}" STREQUAL "")
