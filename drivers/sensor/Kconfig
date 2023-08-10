@@ -248,4 +248,6 @@ source "drivers/sensor/nuvoton_tach_npcx/Kconfig"
 
 source "drivers/sensor/vmszs/Kconfig"
 
+source "drivers/sensor/htu31d/Kconfig"
+
 endif # SENSOR
