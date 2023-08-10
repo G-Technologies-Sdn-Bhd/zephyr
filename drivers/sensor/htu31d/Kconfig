@@ -1,0 +1,7 @@
+
+
+config HTU31D
+    bool "HTU31D Relative Humidity & Temperature Sensor"
+    depends on I2C
+    help
+      Enable driver for HTU31D Relative Humidity & Temperature Sensor.
