@@ -29,16 +29,6 @@ static void kx022_handle_motion_int(const struct device *dev)
 	}
 }
 
-static void kx022_handle_drdy_int(const struct device *dev)
-{
-    struct kx022_data *data = dev->data;
-
-    if (data->drdy_handler != NULL)
-    {
-        data->drdy_handler(dev, &data->drdy_trigger);
-    }
-}
-
 static void kx022_handle_tilt_int(const struct device *dev)
 {
 	struct kx022_data *data = dev->data;
@@ -66,11 +56,6 @@ static void kx022_handle_int(const struct device *dev)
 		kx022_handle_tilt_int(dev);
 	}
 
-	if(status & KX022_MASK_INS2_DRDY){
-
-		 kx022_handle_drdy_int(dev);
-	}
-
 	ret = data->hw_tf->read_reg(dev, KX022_REG_INT_REL, &clr);
 	if (ret) {
 		LOG_DBG("%s: Failed clear int report flag: %d", dev->name, ret);
@@ -96,9 +81,11 @@ static void kx022_work_cb(struct k_work *work)
 }
 #endif
 
-/**
- * @brief Initializes trigger function
- */
+/**************************************************************
+ * FUNCTION : kx022_trigger_init
+ * use to initialize trigger function
+ *
+ * ************************************************************/
 int kx022_trigger_init(const struct device *dev)
 {
 	uint8_t val;
@@ -345,9 +332,7 @@ int kx022_trigger_set(const struct device *dev, const struct sensor_trigger *tri
 	case SENSOR_TRIG_KX022_TILT:
 		ret = kx022_tilt_setup(dev, handler);
 		break;
-	case SENSOR_TRIG_DATA_READY:
-                ret = kx022_drdy_setup(dev,handler);
-		break;
+
 	default:
 		return -ENOTSUP;
 	}
@@ -438,6 +423,7 @@ exit:
 	(void)kx022_operating_mode(dev);
 	return ret;
 }
+
 int kx022_restore_default_trigger_setup(const struct device *dev, const struct sensor_trigger *trig)
 {
 	switch ((int)trig->type) {

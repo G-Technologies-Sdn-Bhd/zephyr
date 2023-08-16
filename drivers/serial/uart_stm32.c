@@ -51,34 +51,6 @@ LOG_MODULE_REGISTER(uart_stm32);
 #define UART_STRUCT(dev)					\
 	((USART_TypeDef *)(DEV_CFG(dev))->uconf.base)
 
-#if HAS_LPUART_1
-#ifdef USART_PRESC_PRESCALER
-uint32_t lpuartdiv_calc(const uint64_t clock_rate, const uint16_t presc_idx,
-			const uint32_t baud_rate)
-{
-	uint64_t lpuartdiv;
-
-	lpuartdiv = clock_rate / LPUART_PRESCALER_TAB[presc_idx];
-	lpuartdiv *= LPUART_LPUARTDIV_FREQ_MUL;
-	lpuartdiv += baud_rate / 2;
-	lpuartdiv /= baud_rate;
-
-	return (uint32_t)lpuartdiv;
-}
-#else
-uint32_t lpuartdiv_calc(const uint64_t clock_rate, const uint32_t baud_rate)
-{
-	uint64_t lpuartdiv;
-
-	lpuartdiv = clock_rate * LPUART_LPUARTDIV_FREQ_MUL;
-	lpuartdiv += baud_rate / 2;
-	lpuartdiv /= baud_rate;
-
-	return (uint32_t)lpuartdiv;
-}
-#endif /* USART_PRESC_PRESCALER */
-#endif /* HAS_LPUART_1 */
-
 #define TIMEOUT 1000
 
 #ifdef CONFIG_PM
@@ -124,39 +96,31 @@ static inline void uart_stm32_set_baudrate(const struct device *dev,
 		return;
 	}
 
+
 #if HAS_LPUART_1
 	if (IS_LPUART_INSTANCE(UartInstance)) {
-		uint32_t lpuartdiv;
 #ifdef USART_PRESC_PRESCALER
-		uint8_t presc_idx;
-		uint32_t presc_val;
+		uint32_t LPUARTDIV;
+		uint8_t i;
 
-		for (presc_idx = 0; presc_idx < ARRAY_SIZE(LPUART_PRESCALER_TAB); presc_idx++) {
-			lpuartdiv = lpuartdiv_calc(clock_rate, presc_idx, baud_rate);
-			if (lpuartdiv >= LPUART_BRR_MIN_VALUE && lpuartdiv <= LPUART_BRR_MASK) {
+		for (i = 0; i < ARRAY_SIZE(USART_PRESCALER_TAB); i++) {
+			LPUARTDIV = LPUARTDIV_CALC(clock_rate, i, baud_rate);
+			if (LPUARTDIV > LPUART_BRR_MIN_VALUE && LPUARTDIV < LPUART_BRR_MASK) {
 				break;
 			}
 		}
 
-		if (presc_idx == ARRAY_SIZE(LPUART_PRESCALER_TAB)) {
-			LOG_ERR("Unable to set %s to %d", dev->name, baud_rate);
+		if (i == ARRAY_SIZE(USART_PRESCALER_TAB)) {
+			LOG_ERR("Failed get a suitable PRESCALER value");
 			return;
 		}
 
-		presc_val = presc_idx << USART_PRESC_PRESCALER_Pos;
-
-		LL_LPUART_SetPrescaler(UartInstance, presc_val);
-#else
-		lpuartdiv = lpuartdiv_calc(clock_rate, baud_rate);
-		if (lpuartdiv < LPUART_BRR_MIN_VALUE || lpuartdiv > LPUART_BRR_MASK) {
-			LOG_ERR("Unable to set %s to %d", dev->name, baud_rate);
-			return;
-		}
-#endif /* USART_PRESC_PRESCALER */
+		LL_LPUART_SetPrescaler(UartInstance, i);
+#endif
 		LL_LPUART_SetBaudRate(UartInstance,
 				      clock_rate,
 #ifdef USART_PRESC_PRESCALER
-				      presc_val,
+				      i,
 #endif
 				      baud_rate);
 	} else {

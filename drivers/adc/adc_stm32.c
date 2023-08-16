@@ -337,6 +337,7 @@ static int adc_stm32_enable(ADC_TypeDef *adc)
 	defined(CONFIG_SOC_SERIES_STM32WBX) || \
 	defined(CONFIG_SOC_SERIES_STM32G0X) || \
 	defined(CONFIG_SOC_SERIES_STM32G4X) || \
+	defined(CONFIG_SOC_SERIES_STM32H7X) || \
 	defined(CONFIG_SOC_SERIES_STM32WLX)
 
 	if (LL_ADC_IsEnabled(adc) == 1UL) {
@@ -476,10 +477,9 @@ static int start_read(const struct device *dev,
 		return err;
 	}
 
-#if defined(CONFIG_SOC_SERIES_STM32G0X) || \
-	defined(CONFIG_SOC_SERIES_STM32WLX)
+#if defined(CONFIG_SOC_SERIES_STM32G0X)
 	/*
-	 * Writing ADC_CFGR1 register while ADEN bit is set
+	 * Errata: Writing ADC_CFGR1 register while ADEN bit is set
 	 * resets RES[1:0] bitfield. We need to disable and enable adc.
 	 */
 	if (LL_ADC_IsEnabled(adc) == 1UL) {
@@ -494,8 +494,7 @@ static int start_read(const struct device *dev,
 	LL_ADC_SetResolution(adc, resolution);
 #endif
 
-#if defined(CONFIG_SOC_SERIES_STM32L0X) || \
-	defined(CONFIG_SOC_SERIES_STM32WLX)
+#ifdef CONFIG_SOC_SERIES_STM32L0X
 	/*
 	 * setting OVS bits is conditioned to ADC state: ADC must be disabled
 	 * or enabled without conversion on going : disable it, it will stop
