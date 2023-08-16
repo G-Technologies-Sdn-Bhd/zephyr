@@ -32,7 +32,7 @@ LOG_MODULE_REGISTER(hawkbit, CONFIG_HAWKBIT_LOG_LEVEL);
 #include "hawkbit_device.h"
 #include "mgmt/hawkbit.h"
 #include "hawkbit_firmware.h"
-
+#include <sys/reboot.h>
 #include "mbedtls/md.h"
 
 #if defined(CONFIG_NET_SOCKETS_SOCKOPT_TLS)
@@ -625,7 +625,11 @@ int hawkbit_init(void)
 
 	rc = nvs_init(&fs, flash_dev->name);
 	if (rc) {
+			rc = flash_erase(flash_dev,
+				  fs.offset, fs.sector_size);
+		
 		LOG_ERR("Storage flash init failed: %d", rc);
+		sys_reboot(SYS_REBOOT_COLD);
 		return -ENODEV;
 	}
 
