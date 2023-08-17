@@ -200,10 +200,14 @@ void esp_socket_close(struct esp_socket *sock)
 	struct esp_data *dev = esp_socket_to_dev(sock);
 	char cmd_buf[sizeof("AT+CIPCLOSE=0")];
 	int ret;
+	
+	esp_lock(dev);
 
 	snprintk(cmd_buf, sizeof(cmd_buf), "AT+CIPCLOSE=%d",
 		 sock->link_id);
 	ret = esp_cmd_send(dev, NULL, 0, cmd_buf, ESP_CMD_TIMEOUT);
+
+	esp_unlock(dev);
 	if (ret < 0) {
 		/* FIXME:
 		 * If link doesn't close correctly here, esp_get could

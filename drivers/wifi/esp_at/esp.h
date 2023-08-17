@@ -232,13 +232,15 @@ struct esp_data {
 	struct k_work connect_work;
 	struct k_work mode_switch_work;
 	struct k_work dns_work;
-
+	
 	scan_result_cb_t scan_cb;
 
 	/* semaphores */
 	struct k_sem sem_tx_ready;
 	struct k_sem sem_response;
 	struct k_sem sem_if_ready;
+
+	struct k_mutex lock;
 };
 
 int esp_offload_init(struct net_if *iface);
@@ -358,6 +360,19 @@ static inline int esp_socket_queue_tx(struct esp_socket *sock,
 	k_mutex_unlock(&sock->lock);
 
 	return ret;
+}
+static inline void esp_lock(struct esp_data *esp)
+{
+	int ret = k_mutex_lock(&esp->lock, K_FOREVER);
+
+	__ASSERT(ret == 0, "%s failed: %d", "k_mutex_lock", ret);
+}
+
+static inline void esp_unlock(struct esp_data *esp)
+{
+	int ret = k_mutex_unlock(&esp->lock);
+
+	__ASSERT(ret == 0, "%s failed: %d", "k_mutex_unlock", ret);
 }
 
 static inline bool esp_socket_connected(struct esp_socket *sock)

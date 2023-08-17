@@ -515,9 +515,10 @@ int esp_get_local_time(const struct device *dev, struct tm *tm, int32_t *offset)
 	static const struct modem_cmd cmds[] = {
 		MODEM_CMD("+"_CIPSNTPTIME":", on_cmd_cipsntptime, 5U, " "),
 	};
-
+	esp_lock(data);
 	ret = esp_cmd_send(data, cmds, ARRAY_SIZE(cmds), "AT+"_CIPSNTPTIME"?",
 			   ESP_CMD_TIMEOUT);
+	esp_unlock(data);
 	if (ret < 0) {
 		LOG_WRN("Failed to query NTP time: ret %d", ret);
 		return ret;
@@ -1091,6 +1092,7 @@ static void esp_reset(struct esp_data *dev)
 		net_if_down(dev->net_iface);
 	}
 
+	
 #if DT_INST_NODE_HAS_PROP(0, power_gpios)
 	modem_pin_write(&dev->mctx, ESP_POWER, 0);
 	k_sleep(K_MSEC(100));
@@ -1111,7 +1113,7 @@ static void esp_reset(struct esp_data *dev)
 			break;
 		}
 	}
-
+	
 	if (ret < 0) {
 		LOG_ERR("Failed to reset device: %d", ret);
 		return;
@@ -1153,6 +1155,8 @@ static int esp_init(const struct device *dev)
 	k_work_init(&data->scan_work, esp_mgmt_scan_work);
 	k_work_init(&data->connect_work, esp_mgmt_connect_work);
 	k_work_init(&data->mode_switch_work, esp_mode_switch_work);
+
+	(void)k_mutex_init(&data->lock);
 	if (IS_ENABLED(CONFIG_WIFI_ESP_AT_DNS_USE)) {
 		k_work_init(&data->dns_work, esp_dns_work);
 	}
