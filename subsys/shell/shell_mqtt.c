@@ -507,7 +507,7 @@ static void network_evt_handler(struct net_mgmt_event_callback *cb, uint32_t mgm
 	    sh_mqtt->network_state == SHELL_MQTT_NETWORK_DISCONNECTED) {
 		LOG_WRN("Network %s", "connected");
 		sh_mqtt->network_state = SHELL_MQTT_NETWORK_CONNECTED;
-		(void)sh_mqtt_work_reschedule(&sh_mqtt->connect_dwork, K_SECONDS(1));
+		(void)sh_mqtt_work_reschedule(&sh_mqtt->connect_dwork, K_SECONDS(10));
 	} else if (mgmt_event == NET_EVENT_L4_DISCONNECTED &&
 		   sh_mqtt->network_state == SHELL_MQTT_NETWORK_CONNECTED) {
 		(void)sh_mqtt_work_submit(&sh_mqtt->net_disconnected_work);
