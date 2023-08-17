@@ -142,6 +142,7 @@ retry:
 		}
 		else
 		{
+			LOG_WRN("co2: %d",sys_get_be16(&data->rd_data[2]));
 			data->data = 0;
 		}
 		break;
