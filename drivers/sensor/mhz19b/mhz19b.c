@@ -299,10 +299,14 @@ static void mhz19b_uart_isr(const struct device *uart_dev, void *user_data)
 	if (uart_irq_rx_ready(uart_dev)) {
 		data->xfer_bytes += uart_fifo_read(uart_dev, &data->rd_data[data->xfer_bytes],
 						   MHZ19B_BUF_LEN - data->xfer_bytes);
-
-		if (data->xfer_bytes == MHZ19B_BUF_LEN) {
+		if(data->rd_data[0] !=0xff)
+			{
+				data->xfer_bytes =0;	
+			}
+		else if (data->xfer_bytes == MHZ19B_BUF_LEN) {
 			data->xfer_bytes = 0;
-			// LOG_HEXDUMP_INF(&data->rd_data, sizeof(data->rd_data), "RX DATA:");
+			
+			LOG_HEXDUMP_INF(&data->rd_data, sizeof(data->rd_data), "RX DATA:");
 
 			uart_irq_rx_disable(uart_dev);
 			k_sem_give(&data->rx_sem);
@@ -318,7 +322,7 @@ static void mhz19b_uart_isr(const struct device *uart_dev, void *user_data)
 				       MHZ19B_BUF_LEN - data->xfer_bytes);
 
 		if (data->xfer_bytes == MHZ19B_BUF_LEN) {
-			// LOG_HEXDUMP_INF(&mhz19b_cmds[data->cmd_idx], sizeof(mhz19b_cmds[data->cmd_idx]), "TRANFERDATA:");
+			LOG_HEXDUMP_INF(&mhz19b_cmds[data->cmd_idx], sizeof(mhz19b_cmds[data->cmd_idx]), "TRANFERDATA:");
 			data->xfer_bytes = 0;
 			uart_irq_tx_disable(uart_dev);
 			if (!data->has_rsp) {
