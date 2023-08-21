@@ -310,9 +310,9 @@ static void mhz19b_uart_isr(const struct device *uart_dev, void *user_data)
 
 			uart_irq_rx_disable(uart_dev);
 			k_sem_give(&data->rx_sem);
-			if (data->has_rsp) {
-				k_sem_give(&data->tx_sem);
-			}
+			// if (data->has_rsp) {
+			// 	k_sem_give(&data->tx_sem);
+			// }
 		}
 	}
 
@@ -325,9 +325,9 @@ static void mhz19b_uart_isr(const struct device *uart_dev, void *user_data)
 			LOG_HEXDUMP_INF(&mhz19b_cmds[data->cmd_idx], sizeof(mhz19b_cmds[data->cmd_idx]), "TRANFERDATA:");
 			data->xfer_bytes = 0;
 			uart_irq_tx_disable(uart_dev);
-			if (!data->has_rsp) {
+			// if (!data->has_rsp) {
 				k_sem_give(&data->tx_sem);
-			}
+			// }
 		}
 	}
 }
