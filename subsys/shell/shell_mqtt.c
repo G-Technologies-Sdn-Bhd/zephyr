@@ -831,4 +831,4 @@ const struct shell *shell_backend_mqtt_get_ptr(void)
 	return &shell_mqtt;
 }
 
-SYS_INIT(enable_shell_mqtt, APPLICATION, CONFIG_APPLICATION_INIT_PRIORITY);
+// SYS_INIT(enable_shell_mqtt, APPLICATION, CONFIG_APPLICATION_INIT_PRIORITY);
