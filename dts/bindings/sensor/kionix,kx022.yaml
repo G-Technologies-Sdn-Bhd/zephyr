@@ -74,7 +74,7 @@ properties:
     odr:
       type: int
       required: false
-      default: 2
+      default: 3
       enum:
         - 0
         - 1
