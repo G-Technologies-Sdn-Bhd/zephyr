@@ -43,6 +43,7 @@ extern "C" {
 #define _CIPSTAMAC "CIPSTAMAC"
 #define _CIPRECVDATA "+CIPRECVDATA:"
 #define _CIPRECVDATA_END ','
+#define _TEST "TEST"
 #endif
 
 /*

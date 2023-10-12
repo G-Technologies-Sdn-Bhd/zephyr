@@ -60,6 +60,22 @@ int modem_iface_uart_init(struct modem_iface *iface,
 			  struct modem_iface_uart_data *data,
 			  const struct device *dev);
 
+/**
+ * @brief Wait for rx data ready from uart interface
+ *
+ * @param iface Interface to wait on
+ *
+ * @return 0 if data is ready
+ * @return -EBUSY if returned without waiting
+ * @return -EAGAIN if timeout occurred
+ */
+static inline int modem_iface_uart_rx_wait(struct modem_iface *iface, k_timeout_t timeout)
+{
+	struct modem_iface_uart_data *data = (struct modem_iface_uart_data *)iface->iface_data;
+
+	return k_sem_take(&data->rx_sem, timeout);
+}
+
 #ifdef __cplusplus
 }
 #endif

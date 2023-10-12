@@ -211,11 +211,14 @@ static void esp_rx(struct esp_data *data)
 {
 	while (true) {
 		/* wait for incoming data */
-		k_sem_take(&data->iface_data.rx_sem, K_FOREVER);
+		// k_sem_take(&data->iface_data.rx_sem, K_FOREVER);
 
-		data->mctx.cmd_handler.process(&data->mctx.cmd_handler,
-					       &data->mctx.iface);
+		// data->mctx.cmd_handler.process(&data->mctx.cmd_handler,
+		// 			       &data->mctx.iface);
+		
+		modem_iface_uart_rx_wait(&data->mctx.iface, K_FOREVER);
 
+		modem_cmd_handler_process(&data->mctx.cmd_handler, &data->mctx.iface);
 		/* give up time if we have a solid stream of data */
 		k_yield();
 	}
@@ -328,7 +331,7 @@ MODEM_CMD_DEFINE(on_cmd_cwlap)
 	res.ssid_length = i;
 	res.rssi = strtol(argv[2], NULL, 10);
 	res.channel = strtol(argv[3], NULL, 10);
-
+	
 	if (dev->scan_cb) {
 		dev->scan_cb(dev->net_iface, 0, &res);
 	}
@@ -827,7 +830,6 @@ static int esp_mgmt_scan(const struct device *dev, scan_result_cb_t cb)
 	if (data->scan_cb != NULL) {
 		return -EINPROGRESS;
 	}
-
 	if (!net_if_is_up(data->net_iface)) {
 		return -EIO;
 	}
@@ -1201,13 +1203,13 @@ static int esp_init(const struct device *dev)
 	data->mctx.pins_len = ARRAY_SIZE(modem_pins);
 
 	data->mctx.driver_data = data;
+	
 
 	ret = modem_context_register(&data->mctx);
 	if (ret < 0) {
 		LOG_ERR("Error registering modem context: %d", ret);
 		goto error;
 	}
-
 	/* start RX thread */
 	k_thread_create(&esp_rx_thread, esp_rx_stack,
 			K_KERNEL_STACK_SIZEOF(esp_rx_stack),

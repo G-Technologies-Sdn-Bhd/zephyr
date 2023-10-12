@@ -300,7 +300,25 @@ int modem_cmd_handler_tx_lock(struct modem_cmd_handler *handler,
  */
 void modem_cmd_handler_tx_unlock(struct modem_cmd_handler *handler);
 
-
+/**
+ * @brief Process incoming data
+ *
+ * @details This function will process any data available from the interface
+ * using the command handler. The command handler will invoke any matching modem
+ * command which has been registered using @ref modem_cmd_handler_init_cmds or
+ * @ref modem_cmd_handler_update_cmds. Once handled, the function will return.
+ *
+ * @note This function should be invoked from a dedicated thread, which only handles
+ * commands.
+ *
+ * @param handler The handler wich will handle the command when processed
+ * @param iface The interface which receives incoming data
+ */
+static inline void modem_cmd_handler_process(struct modem_cmd_handler *handler,
+					     struct modem_iface *iface)
+{
+	handler->process(handler, iface);
+}
 #ifdef __cplusplus
 }
 #endif
