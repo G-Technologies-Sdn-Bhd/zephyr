@@ -115,8 +115,14 @@ static inline int gp2y10_poll_data(const struct device *dev)
 
 static int gp2y10_sample_fetch(const struct device *dev, enum sensor_channel chan)
 {
+	int ret;
+	int retry_cnt=0;
 	pm_constraint_set(PM_STATE_SUSPEND_TO_IDLE);
-	return gp2y10_poll_data(dev);
+retry:
+	ret= gp2y10_poll_data(dev);
+	if(ret<0 && retry_cnt++<5){
+		goto retry;
+	}
 	pm_constraint_release(PM_STATE_SUSPEND_TO_IDLE);
 }
 
