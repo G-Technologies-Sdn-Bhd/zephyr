@@ -250,4 +250,6 @@ source "drivers/sensor/vmszs/Kconfig"
 
 source "drivers/sensor/htu31d/Kconfig"
 
+source "drivers/sensor/dps368/Kconfig"
+
 endif # SENSOR
