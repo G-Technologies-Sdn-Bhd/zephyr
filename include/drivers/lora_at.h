@@ -42,6 +42,7 @@ typedef void (*lora_cb)(int *evt);
 // 	LORA_CB_STOP,
 // }lora_cb_state_t;
 int lora_at_get_command(void);
+void lora_set_origin_axis(void);
 void lorawan_register_modem_status_callback(
 lora_cb cb);
 // typedef void (*lora_at_callback_t)(uint8_t status);

@@ -234,6 +234,9 @@ MODEM_CMD_DEFINE(lora_cmd_rev)
 	{
 		LOG_WRN("GOT Data %d",atoi(argv[3]));
 		lora.recv_data = atoi(argv[3]);
+		lora_set_origin_axis();
+		
+
 	}
 	
 	LOG_INF("%s","RECV: OK");
@@ -380,7 +383,7 @@ void lora_rejoin(void)
 			NULL, 0U,
 			"AT+CJOIN=1,1,8,8",
 			&lora.sem_response,
-			LORA_AT_CMD_SETUP_TIMEOUT);
+			K_MSEC(500));
 
 }
 MODEM_CMD_DEFINE(on_cmd_atcmdjoin)
@@ -513,7 +516,9 @@ static int lora_at_init(const struct device *dev)
 	lora->conn_status = false;
 	// lora_at_lock(lora);
 	lora->state =LORA_STOP;
-	lora_rejoin();	
+	lora_rejoin();
+
+	// lora_query_modem_info(lora);	
 	// lora_at_unlock(lora);
 	// net_if_up(lora->net_iface);
 	// if(r!=0){
@@ -628,7 +633,7 @@ static const struct lora_driver_api lora_at_api = {
 	// .recv = lora_at_recv,
 	// .test_cw = lora_at_test_cw,
 };
-
+static bool lora_info =false;
 void lora_start(const struct device *dev)
 {
 	struct lora_modem *lora = dev->data;
@@ -640,7 +645,11 @@ void lora_start(const struct device *dev)
 		goto unlock;
 	}
 	lora->state = LORA_START;
-	lora_query_modem_info(lora);
+	if(lora_info == false)
+	{
+		lora_query_modem_info(lora);
+		lora_info= true;
+	}
 	lora->lora_status(LORA_EVT_STATED);
 // #if DT_NODE_HAS_STATUS(DT_NODELABEL(lora_pwr_en), okay)
 		TURN_DO_(lora_pwr_en, _ON);
