@@ -3,6 +3,7 @@
 
 menuconfig LORA_AT
 	bool "EByte AT Command support"
+	#select MODEM
 	select MODEM_CONTEXT
 	select MODEM_CMD_HANDLER
 	select MODEM_IFACE_UART

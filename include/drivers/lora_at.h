@@ -22,42 +22,6 @@ int LORA_MGMT_RAISE_CONNECT_RESULT_EVENT(void);
 
 #define MAX_ASCII_LEN 256
 
-struct sensorData
-{
-	int64_t timestamp;
-	int vmain;
-	int v_phase1;
-	int v_phase2;
-	int v_phase3;
-	int i_phase1;
-	int i_phase2;
-	int i_phase3;
-	int p_phase1;
-	int p_phase2;
-	int p_phase3;
-	int swell_v1;
-	int swell_v2;
-	int swell_v3;
-	int swell_percentage1;
-	int swell_percentage2;
-	int swell_percentage3;
-	int current;
-	int active_power;
-	int active_total_energy;
-	int pf1;
-	int pf2;
-	int pf3;
-	uint64_t tm;
-};
-
-struct devInfo
-{
-	int64_t timestamp;
-	int vmain;
-	uint64_t tm;
-};
-static struct devInfo DevInfo;
-static struct sensorData SensorData;
 #ifdef __cplusplus
 }
 #endif
@@ -65,6 +29,21 @@ static struct sensorData SensorData;
 int LORA_MGMT_RAISE_CONNECT_RESULT_EVENT(void);
 void lora_start(const struct device *dev);
 void lora_stop(const struct device *dev);
+enum lora_evt{
+	LORA_EVT_INIT =0,
+	LORA_EVT_STATED,
+	LORA_EVT_CONNECTED,
+	LORA_EVT_STOP,
+};
+typedef void (*lora_cb)(int *evt);
+// typedef enum lora_cb_state{
+// 	LORA_CB_INIT =0,
+// 	LORA_CB_STATED,
+// 	LORA_CB_STOP,
+// }lora_cb_state_t;
+int lora_at_get_command(void);
+void lorawan_register_modem_status_callback(
+lora_cb cb);
 // typedef void (*lora_at_callback_t)(uint8_t status);
 // lora_at_callback_t temp
 #endif	/* ZEPHYR_INCLUDE_DRIVERS_LORA_AT_H_ */
