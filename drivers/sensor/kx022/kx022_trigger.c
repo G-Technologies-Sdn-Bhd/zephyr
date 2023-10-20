@@ -28,7 +28,50 @@ static void kx022_handle_motion_int(const struct device *dev)
 		data->motion_handler(dev, &data->motion_trigger);
 	}
 }
+#if IS_ENABLED (CONFIG_KX022_BUFFER_TRIG)
+#include <sys/ring_buffer.h>
+#define RING_BUFFER_SIZE  10* MAX_DATA_SIZE  // Adjust the size as needed 
+RING_BUF_DECLARE(buffer_data,RING_BUFFER_SIZE);
 
+void consume_ring_buffer(const struct device *dev)
+{
+   struct kx022_data *data = dev->data;
+   ring_buf_get(&buffer_data,data->bf_data,sizeof(data->bf_data));
+}
+static void kx022_handle_buff_int(const struct device *dev)
+{
+   struct kx022_data *data = dev->data;
+
+    if (data->buff_handler != NULL)
+    {
+	 uint8_t *data_claimed;
+	 uint8_t buff[MAX_DATA_SIZE];
+	int ret;
+
+	ret = data->hw_tf->read_data(dev, KX022_REG_BUF_READ, buff, sizeof(buff));
+	if (ret) {
+		LOG_DBG("%s: Failed to read %s: %d", dev->name, "sample", ret);
+		return ret;
+	}
+
+	// for(int i =0 ;i<41;i++){
+	// 	data->bf_data[i]=(int)sys_get_be16(&buf[j]) ;//1000;
+	// 	// printk("set %d j%d value %f------\r\n",i,j,dval);
+	// 	j=j+2;
+	// }
+	 int claimed_bytes = ring_buf_put_claim(&buffer_data, &data_claimed,sizeof(buff));
+	  if (claimed_bytes >= sizeof(buff)) {
+            ring_buf_put_finish(&buffer_data, sizeof(buff)); // Copy the data to the ring buffer
+        } else {
+            // Handle the case when the ring buffer is full
+            LOG_ERR("Ring buffer is full. Data not copied.");
+        }
+	 data->buff_handler(dev, &data->buff_trigger);
+       
+    }
+
+}
+#endif
 static void kx022_handle_drdy_int(const struct device *dev)
 {
     struct kx022_data *data = dev->data;
@@ -57,7 +100,6 @@ static void kx022_handle_int(const struct device *dev)
 	if (data->hw_tf->read_reg(dev, KX022_REG_INS2, &status)) {
 		return;
 	}
-
 	if (status & KX022_MASK_INS2_WUFS) {
 		kx022_handle_motion_int(dev);
 	}
@@ -70,7 +112,12 @@ static void kx022_handle_int(const struct device *dev)
 
 		 kx022_handle_drdy_int(dev);
 	}
+#if IS_ENABLED (CONFIG_KX022_BUFFER_TRIG)
+	if(status & KX022_MASK_INS2_BFI){
 
+		 kx022_handle_buff_int(dev);
+	}
+#endif
 	ret = data->hw_tf->read_reg(dev, KX022_REG_INT_REL, &clr);
 	if (ret) {
 		LOG_DBG("%s: Failed clear int report flag: %d", dev->name, ret);
@@ -157,7 +204,6 @@ int kx022_trigger_init(const struct device *dev)
 
 	return ret;
 }
-
 int kx022_motion_setup(const struct device *dev, sensor_trigger_handler_t handler)
 {
 	struct kx022_data *data = dev->data;
@@ -217,11 +263,47 @@ exit:
 	(void)kx022_operating_mode(dev);
 	return ret;
 }
+#if IS_ENABLED (CONFIG_KX022_BUFFER_TRIG)
+int kx022_buff_setup(const struct device *dev, sensor_trigger_handler_t handler)
+{
+	struct kx022_data *data = dev->data;
+	const struct kx022_config *cfg = dev->config;
+	int ret;
+	LOG_WRN("kx022_buff_setup ");
+	if (handler == NULL) {
+		LOG_WRN("%s: no handler", dev->name);
+	}
+	data->buff_handler = handler;
 
+	ret = kx022_standby_mode(dev);
+	if (ret) {
+			LOG_ERR("%s","Failed to ");
+		return ret;
+	}
+
+	 ret = data->hw_tf->update_reg(dev,
+                KX022_REG_INC4,
+                KX022_MASK_INC4_BFI1,
+                KX022_INC4_BFI1);
+
+	if(ret<0){
+		LOG_ERR("%s","Failed to set Buffer full register");
+		return ret;
+	}
+
+		ret = data->hw_tf->write_reg(dev, KX022_REG_BUF_CNTL2, 0xE0);
+	if (ret) {
+		LOG_ERR("%s: Failed to write %s: %d", dev->name, "buffer full cntl", ret);
+		return ret;
+	}
+	(void)kx022_operating_mode(dev);
+}
+#endif
 int kx022_drdy_setup(const struct device *dev,
                         sensor_trigger_handler_t handler)
 {
     struct kx022_data *data = dev->data;
+	const struct kx022_config *cfg = dev->config;
     int ret;
   	data->drdy_handler = handler;
 
@@ -238,7 +320,7 @@ int kx022_drdy_setup(const struct device *dev,
     ret = data->hw_tf->update_reg(dev,
                 KX022_REG_ODCNTL,
                 KX022_MASK_ODCNTL_OSA,
-                KX022_ODCNTL_50HZ) ;
+                cfg->odr) ;
 	if (ret < 0) {
 		LOG_ERR("Failed set data ready odr");
 		goto exit;
@@ -348,6 +430,11 @@ int kx022_trigger_set(const struct device *dev, const struct sensor_trigger *tri
 	case SENSOR_TRIG_DATA_READY:
                 ret = kx022_drdy_setup(dev,handler);
 		break;
+#if IS_ENABLED (CONFIG_KX022_BUFFER_TRIG)
+	case SENSOR_TRIG_KX022_BF:
+		ret =kx022_buff_setup(dev,handler);
+		break;
+#endif
 	default:
 		return -ENOTSUP;
 	}

@@ -26,6 +26,8 @@ enum sensor_channel_kx022 {
 	/* MOTION */
 	SENSOR_CHAN_KX022_MOTION,
 
+	SENSOR_CHAN_KX022_BF,
+
 	/* configure kx022*/
 	SENSOR_CHAN_KX022_CFG
 };
@@ -35,7 +37,9 @@ enum sensor_trigger_type_kx022 {
 	SENSOR_TRIG_KX022_TILT = SENSOR_TRIG_PRIV_START,
 
 	/* MOTION DETECT */
-	SENSOR_TRIG_KX022_MOTION
+	SENSOR_TRIG_KX022_MOTION,
+
+	SENSOR_TRIG_KX022_BF
 };
 
 enum sensor_attribute_kx022 {
@@ -86,5 +90,7 @@ int kx022_restore_default_trigger_setup(const struct device *dev,
  */
 int kx022_read_register_value(const struct device *dev, uint8_t reg, uint8_t *val);
 #endif /* CONFIG_KX022_DIAGNOSTIC_MODE */
+
+void kx_buffer_get(const struct device *dev,uint8_t *kx_rb);//, float t_gain,int sens);
 
 #endif /* ZEPHYR_INCLUDE_DRIVERS_SENSOR_SHT4X_H_ */

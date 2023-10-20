@@ -345,6 +345,11 @@ static int kx022_sample_fetch_accel_xyz(const struct device *dev)
 	return 0;
 }
 
+static int kx022_sample_fetch_buffer_full(const struct device *dev)
+{
+	struct kx022_data *data = dev->data;
+	consume_ring_buffer(dev);
+}
 static int kx022_tilt_pos(const struct device *dev)
 {
 	struct kx022_data *data = dev->data;
@@ -401,6 +406,11 @@ static int kx022_sample_fetch(const struct device *dev, enum sensor_channel chan
 	case SENSOR_CHAN_KX022_TILT:
 		ret = kx022_tilt_pos(dev);
 		break;
+#if IS_ENABLED (CONFIG_KX022_BUFFER_TRIG)
+	case SENSOR_CHAN_KX022_BF:
+		ret=  kx022_sample_fetch_buffer_full(dev);
+	break;
+#endif
 	default:
 		return -ENOTSUP;
 	}
@@ -418,6 +428,18 @@ static inline void kx022_convert(struct sensor_value *val, int raw_val, float ga
 	val->val1 = dval / 1000000LL;
 	val->val2 = dval % 1000000LL;
 }
+#if IS_ENABLED (CONFIG_KX022_BUFFER_TRIG)
+void kx_buffer_get(const struct device *dev,uint8_t *kx_rb)
+{
+	struct kx022_data *data = dev->data;
+	
+	 memcpy(kx_rb,data->bf_data,MAX_DATA_SIZE);
+}
+static inline void kx022_convert_buffer(struct sensor_value *val, struct kx022_data *data,int d)
+{
+	int64_t dval;
+}
+#endif
 static inline void kx022_tilt_pos_get(struct sensor_value *val, int raw_val)
 {
 	val->val1 = (int16_t)raw_val;
@@ -460,6 +482,14 @@ static inline int kx022_get_channel(enum sensor_channel chan, struct sensor_valu
 	case SENSOR_CHAN_KX022_MOTION:
 		kx022_motion_dir_get(val, data->sample_motion_dir);
 		break;
+#if IS_ENABLED (CONFIG_KX022_BUFFER_TRIG)
+	case SENSOR_CHAN_KX022_BF:
+		// for(int i =0 ;i<123;i++){
+			kx022_convert_buffer(val,data,0);
+			// i+2;
+		// }
+		break;
+#endif
 	default:
 		return -ENOTSUP;
 	}

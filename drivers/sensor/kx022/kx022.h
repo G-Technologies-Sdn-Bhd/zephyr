@@ -181,6 +181,8 @@
 #define KX022_MASK_INC4_TDTI1 BIT(2)
 #define KX022_MASK_INC4_WUFI1 BIT(1)
 #define KX022_MASK_INC4_TPI1 BIT(0)
+
+#define KX022_INC4_BFI1 (0x01 << 6)
 /* Wake-Up (motion detect) interrupt reported on physical interrupt pin INT1 */
 #define KX022_INC4_WUFI1_SET (0x01 << 1)
 #define KX022_INC4_WUFI1_RESET (0x00)
@@ -326,7 +328,7 @@
 #define BITWISE_SHIFT_2 2
 #define BITWISE_SHIFT_1 1
 #define KX022_INIT_DELAY 100
-
+#define MAX_DATA_SIZE 246//252
 /* Accel sensor sensitivity unit is 0.061 mg/LSB */
 #define GAIN_XL (6103515625LL / 1000000000000.0)
 
@@ -383,6 +385,12 @@ struct kx022_data {
 
 	struct sensor_trigger tilt_trigger;
 	sensor_trigger_handler_t tilt_handler;
+#if IS_ENABLED(CONFIG_KX022_BUFFER_TRIG)
+	uint8_t bf_data[MAX_DATA_SIZE];
+#endif
+	struct sensor_trigger buff_trigger;
+	sensor_trigger_handler_t buff_handler;
+
 	const struct device *dev;
 
 #if defined(CONFIG_KX022_TRIGGER_OWN_THREAD)
@@ -399,7 +407,9 @@ struct kx022_data {
 int kx022_i2c_init(const struct device *dev);
 int kx022_operating_mode(const struct device *dev);
 int kx022_standby_mode(const struct device *dev);
-
+#if IS_ENABLED (CONFIG_KX022_BUFFER_TRIG)
+void consume_ring_buffer(const struct device *dev);
+#endif
 #ifdef CONFIG_KX022_TRIGGER
 int kx022_trigger_set(const struct device *dev, const struct sensor_trigger *trig,
 		      sensor_trigger_handler_t handler);

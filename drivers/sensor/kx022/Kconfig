@@ -84,4 +84,10 @@ config KX022_TILT_ANGLE_LL_RUNTIME
 	help
 	  Set tilt angle ll in runtime
 
+config KX022_BUFFER_TRIG
+	bool "for enable buffer full interupt function"
+	default n
+	help
+	   enable buffer full interupt function
+	   
 endif # KX022
