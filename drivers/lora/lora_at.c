@@ -276,8 +276,9 @@ MODEM_CMD_DEFINE(on_cmd_status)
 	out_len = net_buf_linearize(status,
 				    sizeof(status) -1,
 				    data->rx_buf,0,len);
-
-	lora.lora_con_status = atoi(status);
+	if( atoi(status)==4 && lora.conn_status== false){
+		lora.lora_con_status = atoi(status);
+	}
 	status[out_len+1] = '\0';	
 	k_sem_give(&lora.sem_response);
 	return 0;	
