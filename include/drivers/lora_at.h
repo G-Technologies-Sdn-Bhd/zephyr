@@ -36,6 +36,7 @@ enum lora_evt{
 	LORA_EVT_STOP,
 };
 typedef void (*lora_cb)(int *evt);
+typedef void (*lora_connect_cb)(int *evt);
 // typedef enum lora_cb_state{
 // 	LORA_CB_INIT =0,
 // 	LORA_CB_STATED,
@@ -45,6 +46,8 @@ int lora_at_get_command(void);
 void lora_set_origin_axis(void);
 void lorawan_register_modem_status_callback(
 lora_cb cb);
+void lorawan_status_callback(
+lora_connect_cb cb);
 // typedef void (*lora_at_callback_t)(uint8_t status);
 // lora_at_callback_t temp
 #endif	/* ZEPHYR_INCLUDE_DRIVERS_LORA_AT_H_ */
