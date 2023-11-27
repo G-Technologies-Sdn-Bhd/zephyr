@@ -167,62 +167,10 @@ static void lora_at_rx(struct lora_modem *lora)
 		/* The handler will listen AT channel */
 		lora->context.cmd_handler.process(&lora->context.cmd_handler,
 						 &lora->context.iface);
-		// k_yield();
+		k_yield();
 	}
 }
-// static int lora_atoi(const char *s, const int err_value,
-// 				const char *desc, const char *func)
-// {
-// 	int ret;
-// 	char *endptr;
 
-// 	ret = (int)strtol(s, &endptr, 10);
-// 	if (!endptr || *endptr != '\0') {
-// 		LOG_ERR("bad %s '%s' in %s", log_strdup(s),
-// 			 log_strdup(desc), log_strdup(func));
-// 		return err_value;
-// 	}
-
-// 	return ret;
-// }
-int lora_atoi_array(const char *s, int *buff, int array_size)
-{
-//  char input_string[] = ":02,00,00";
-char *token;
-
-// Use the strtok function to split the string by ","
-token = strtok(s, ",");
-int i =0;
-// Loop through and print the values
-while (token != NULL) {
-    // Assuming you want to convert the values to integers
-    buff[i]= atoi(token);
-	i++;
-    // Do something with the value, e.g., print it   
-    // Get the next token
-    token = strtok(NULL, ",");
-}
-}
-
-
-
-void convertStringToInt(const char *dataString, int *data) {
-    // Check for NULL pointer or empty string
-    if (dataString == NULL || dataString[0] == '\0') {
-        *data = 0; // Default to 0 in case of invalid input
-        return;
-    }
-
-    char *endptr;
-    *data = strtol(dataString, &endptr, 10);
-
-    // Check if conversion was successful
-    if (*endptr != '\0') {
-        // Handle conversion error, e.g., invalid characters in the input string
-        // You may add appropriate error handling based on your use case.
-        *data = 0; // Default to 0 in case of invalid input
-    }
-}
 int lora_at_get_command(void){
 	int d = lora.recv_data;
 	if(lora.recv_data >0)
@@ -287,6 +235,7 @@ MODEM_CMD_DEFINE(lora_cmd_error)
 {
 	modem_cmd_handler_set_error(data, -EINVAL);
 	size_t out_len;
+	static 	uint8_t count_try=0;
 	char md[20];
 	char md2[7];
 	out_len = net_buf_linearize(md,
@@ -296,6 +245,20 @@ MODEM_CMD_DEFINE(lora_cmd_error)
 
 	LOG_ERR("error:%s ,%d", log_strdup(md),atoi(md));
 	// LOG_ERR("ERR");
+	switch(atoi(md))
+	{
+		case 0:
+		LOG_INF("NOT CONNECTED");
+		lora_rejoin();
+		break;
+		default:
+		LOG_ERR("Unkown State %d",atoi(md));
+		break;
+	}	
+	if(count_try++>5)
+	{
+		sys_reboot(0);
+	}
 	k_sem_give(&lora.sem_response);
 	return 0;
 }
@@ -434,7 +397,7 @@ MODEM_CMD_DEFINE(on_cmd_atcmdjoin)
 }
 static const struct modem_cmd response_cmds[] = {
 	MODEM_CMD_ARGS_MAX("OK+RECV:", lora_cmd_rev, 3U,4U,","),
-	MODEM_CMD("+CJOIN:", on_cmd_atcmdjoin, 0U, "OK"),
+	MODEM_CMD("+CJOIN:", on_cmd_atcmdjoin, 0U, ""),
 	// MODEM_CMD("ERR", lora_cmd_error, 0U, ""),
 	MODEM_CMD("ERR", lora_cmd_error, 0U, ":"),
 	// MODEM_CMD("+CSTATUS",on_cmd_status,0U,":"),
@@ -446,9 +409,9 @@ void lora_rejoin(void)
 	ret =modem_cmd_send(&lora.context.iface,
 			&lora.context.cmd_handler,
 			NULL, 0U,
-			"AT+CJOIN=1,1,8,8",
+			"AT+CJOIN=1,0,8,8",
 			&lora.sem_response,
-			K_SECONDS(2));
+			K_SECONDS(20));
 
 }
 static const struct setup_cmd  status_get_cmd[]={
@@ -661,6 +624,14 @@ void lora_start(const struct device *dev)
 	struct lora_modem *lora = dev->data;
 	lora_at_lock(lora);
 
+
+	int ret = modem_iface_uart_init_dev(&lora->context.iface, 
+				DEVICE_DT_GET(LORA_AT_UART_NODE));
+	if(ret<0)
+	{
+		LOG_DBG("ERROR %s Lora","init");
+		return ret;
+	}
 	if(lora->state !=LORA_STOP)
 	{
 		LOG_ERR("lora_at is already %s", "started");
@@ -670,6 +641,7 @@ void lora_start(const struct device *dev)
 	lora->state = LORA_START;
 #if DT_NODE_HAS_STATUS(DT_NODELABEL(lora_pwr_en), okay)
 		TURN_DO_(lora_pwr_en, _ON);
+		LOG_WRN("WAITING");
 		k_msleep(2000);
  #endif
 	
@@ -677,11 +649,9 @@ void lora_start(const struct device *dev)
 	{
 	lora_query_modem_info(lora);
 	lora_rejoin();
-	k_work_reschedule(&lora->status_dwork,K_SECONDS(8));
-	}
-
 	lora_info= true;
-
+	// k_work_reschedule(&lora->status_dwork,K_SECONDS(8));
+	}
 	lora->lora_status(LORA_EVT_STATED);
 
 unlock:
