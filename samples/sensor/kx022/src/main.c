@@ -30,6 +30,8 @@ static struct {
     bool is_positive_crossing; 
     bool initial_data_processed; 
     double magnitude;
+    int count;
+    double total_mag;
     double highest_velocity;
     bool veloMon;
     double gravity[3];
@@ -59,7 +61,7 @@ double mms2_convert(double val)
 {
 	// val *= 1000;
 	/*convert m/s2 to mm/s*/
-	// val = (val * 0.01) * 1000;
+	// val = (val * 0.01);// * 1000;
 	return val;//*1000; //(val / FREQUNCY);
 }
 
@@ -95,7 +97,9 @@ void process_accelerometer_data(double accelerometer_data[3], double velocity[3]
 
 // Count zero-crossings to estimate frequency
 void count_zero_crossings(double accelerometer_data[3],double threshold) {
-    if(threshold >5){
+    if(threshold >5.0){
+               velocity_data.count++;
+        velocity_data.total_mag +=threshold;
     // velocity_data.evt_start =true;
     for (int i = 0; i < 3; i++) {
         if (accelerometer_data[i] * velocity_data.last_acceleration[i] < 0) {
@@ -196,12 +200,13 @@ void accelerometer_thread(void)
          y=pow(velocity_data.velocity[1],2);
          z=pow(velocity_data.velocity[2],2);
        
-         double mag =sqrt(x+y+z)*1000;
-         velocity_data.magnitude = mag; 
-         
-         if(velocity_data.magnitude >velocity_data.highest_velocity &&velocity_data.veloMon ==true)
+         double mag =(sqrt(x+y+z)*1000)* 1.08;
+         velocity_data.magnitude += mag; 
+  
+         if(mag>velocity_data.highest_velocity &&velocity_data.veloMon ==true)
          {
-            velocity_data.highest_velocity  = velocity_data.magnitude;
+            // velocity_data.total_mag = velocity_data.highest_velocity;
+            velocity_data.highest_velocity  = mag;
          }
         count_zero_crossings(accelerometer_data,mag);
         
@@ -233,7 +238,7 @@ void frequency_monitoring_thread(void) {
         // }
     
   
-    if(velocity_data.zero_crossing_count!=0 && velocity_data.magnitude >5)
+    if(velocity_data.zero_crossing_count!=0 && (velocity_data.magnitude/velocity_data.count) >5)
     {
         if(velocity_data.evt_start!= true)
         {
@@ -256,18 +261,26 @@ void frequency_monitoring_thread(void) {
         tppk=0;
         tHz=0;
     }
-    printf("X:%f\tY:%f\tZ:%f\tvel:%f\tpeak:%f\thz:%d\ttotalHz%d\tppk:%f\r\n",
+    double d = (velocity_data.total_mag/velocity_data.count);//*0.95;
+    double fq = ((double)velocity_data.zero_crossing_count)/20;
+    if(isnan(d))
+    {
+        d = velocity_data.highest_velocity;
+    }
+    printf(",%f,%.5f,%.5f%.5f,%.5f,%.2f,%d,%.5f\r\n",
             velocity_data.velocity[0],velocity_data.velocity[1],
-            velocity_data.velocity[2],velocity_data.magnitude,
-            velocity_data.highest_velocity ,velocity_data.zero_crossing_count,
-            tHz,tppk);
+            velocity_data.velocity[2],d,
+            velocity_data.highest_velocity ,fq,
+            tHz/20,tppk);
     
     
-
+    velocity_data.count =0;
+    velocity_data.total_mag =0;
+    velocity_data.magnitude=0;
     velocity_data.highest_velocity =0;
     velocity_data.zero_crossing_count =0;
     velocity_data.veloMon =true;
-    k_sleep(K_MSEC(1000));  
+    k_sleep(K_MSEC(2000));  
     }
 }
 
@@ -278,19 +291,19 @@ void start_threads(void) {
 	struct sensor_trigger trig1 = { .type = SENSOR_TRIG_DATA_READY };
     const struct device *sensor = device_get_binding("KX022");
         
-    trig1.type = SENSOR_TRIG_DATA_READY;
-    int ret = sensor_trigger_set(sensor, &trig1, accel_rdry_handler);
+    // trig1.type = SENSOR_TRIG_DATA_READY;
+    // int ret = sensor_trigger_set(sensor, &trig1, accel_rdry_handler);
 
-    	// tid = k_thread_create(&accelerometer_thread_data,
-		// 					  accelerometer_thread_stack,
-		// 					  K_THREAD_STACK_SIZEOF(accelerometer_thread_stack),
-		// 					  (k_thread_entry_t)accelerometer_thread,
-		// 					  NULL,
-		// 					  NULL,
-		// 					  NULL,
-		// 					  1,
-		// 					  0,
-		// 					    K_NO_WAIT);
+    	tid = k_thread_create(&accelerometer_thread_data,
+							  accelerometer_thread_stack,
+							  K_THREAD_STACK_SIZEOF(accelerometer_thread_stack),
+							  (k_thread_entry_t)accelerometer_thread,
+							  NULL,
+							  NULL,
+							  NULL,
+							  1,
+							  0,
+							    K_NO_WAIT);
         ttid = k_thread_create(&frequency_monitoring_thread_data,
                     frequency_monitoring_thread_stack,
                     K_THREAD_STACK_SIZEOF(frequency_monitoring_thread_stack),
