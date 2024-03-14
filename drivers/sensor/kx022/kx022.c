@@ -349,6 +349,7 @@ static int kx022_sample_fetch_buffer_full(const struct device *dev)
 {
 	struct kx022_data *data = dev->data;
 	consume_ring_buffer(dev);
+	return 0;
 }
 static int kx022_tilt_pos(const struct device *dev)
 {
