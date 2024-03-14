@@ -44,20 +44,14 @@ static void dypa01_uart_isr(const struct device *uart_dev, void *user_data)
 	if (uart_irq_rx_ready(uart_dev)) {
 		d->xfer_bytes += uart_fifo_read(uart_dev, &d->buffer[d->xfer_bytes],
 					     DYPA01_BUF_LEN - d->xfer_bytes);
-		// if(d->buffer[0]!= 0xFF )//&& d->buffer[1]== 0xFF)
-		// {
-        //     d->xfer_bytes = 0;
-        // }
-		// else
-		// {
+
 			if (d->xfer_bytes == DYPA01_BUF_LEN)
 			{
-				LOG_HEXDUMP_INF( d->buffer,sizeof(d->buffer),"Rd data:");
+				// LOG_HEXDUMP_INF( d->buffer,sizeof(d->buffer),"Rd data:");
 				d->xfer_bytes = 0;
 				uart_irq_rx_disable(uart_dev);
 				k_sem_give(&d->rx_sem);
 			}
-		// }
 	}
 }
 
@@ -75,7 +69,13 @@ uint16_t split_data(const uint8_t* buffer, size_t length) {
 			if (xm == buf[3])
 			{	
 					// LOG_WRN("Got Valid data  %d", ((uint16_t)buf[1] << 8) + (buf[2]));
-					ret =((uint16_t)buf[1] << 8) + (buf[2]);
+				uint16_t data = ((uint16_t)buf[1] << 8) + (buf[2]);
+				if(data >0){
+					ret = data;
+				}else{
+					ret = -EBADMSG;
+				}
+					
 			}
 			
         }
