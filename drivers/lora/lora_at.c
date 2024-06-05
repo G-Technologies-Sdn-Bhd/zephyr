@@ -187,7 +187,7 @@ MODEM_CMD_DEFINE(lora_cmd_rev)
 	{
 		LOG_WRN("GOT Data %d",atoi(argv[3]));
 		lora.recv_data = atoi(argv[3]);
-		lora_set_origin_axis();
+		// lora_set_origin_axis();
 		
 
 	}
@@ -257,7 +257,7 @@ MODEM_CMD_DEFINE(lora_cmd_error)
 	}	
 	if(count_try++>5)
 	{
-		sys_reboot(0);
+		// sys_reboot(0);
 	}
 	k_sem_give(&lora.sem_response);
 	return 0;
@@ -383,6 +383,7 @@ MODEM_CMD_DEFINE(on_cmd_atcmdjoin)
 	int d =lora_flag_set(dev,LORA_CONNECTED);
 	if (strcmp(status, "OK") == 0){
 		LOG_INF("LORA CONNECTED %s",log_strdup(status));
+		lora.lora_status(2);
 	}
 	else{
 		lora_rejoin();	
@@ -640,9 +641,9 @@ void lora_start(const struct device *dev)
 
 	lora->state = LORA_START;
 #if DT_NODE_HAS_STATUS(DT_NODELABEL(lora_pwr_en), okay)
-		TURN_DO_(lora_pwr_en, _ON);
-		LOG_WRN("WAITING");
-		k_msleep(2000);
+		// TURN_DO_(lora_pwr_en, _ON);
+		// LOG_WRN("WAITING");
+		// k_msleep(2000);
  #endif
 	
 	if(lora_info == false)
@@ -673,9 +674,9 @@ void lora_stop(const struct device *dev)
 		return;
 	}
 lora->lora_status(LORA_EVT_STOP);
-#if DT_NODE_HAS_STATUS(DT_NODELABEL(lora_pwr_en), okay)
-	TURN_DO_(lora_pwr_en, _OFF);
-#endif
+// #if DT_NODE_HAS_STATUS(DT_NODELABEL(lora_pwr_en), okay)
+// 	TURN_DO_(lora_pwr_en, _OFF);
+// #endif
 	lora->state = LORA_STOP;
 
 }
