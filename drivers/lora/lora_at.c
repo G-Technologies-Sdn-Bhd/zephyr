@@ -192,7 +192,7 @@ MODEM_CMD_DEFINE(lora_cmd_rev)
 
 	}
 	modem_cmd_handler_set_error(data, 0);
-	LOG_INF("%s","RECV: OK");
+	LOG_INF("%s : [%d| %d| %d]","RECV: OK", atoi(argv[1]),atoi(argv[2]),atoi(argv[3]));
 	k_sem_give(&lora.sem_response);
 	return 0;
 }
@@ -255,10 +255,10 @@ MODEM_CMD_DEFINE(lora_cmd_error)
 		LOG_ERR("Unkown State %d",atoi(md));
 		break;
 	}	
-	if(count_try++>5)
-	{
+	// if(count_try++>5)
+	// {
 		// sys_reboot(0);
-	}
+	// }
 	k_sem_give(&lora.sem_response);
 	return 0;
 }
@@ -584,13 +584,13 @@ int lora_at_send(const struct device *dev, char *data,
 {
 	
 	int  ret;
+	
 	struct lora_modem *d = dev->data;
-	
 	struct modem_cmd cmd  = MODEM_CMD("OK+SEND", on_cmd_setup_no_handler, 0U, "");
-	
+	lora_at_lock(d);
 	if(lora.conn_status == true)
 	{
-		lora_at_lock(d);
+	
 		
 		char buf[data_len +19];
 		snprintk(buf, sizeof(buf), "AT+DTRX=%d,%d,%d,%s", CONFIRM,NBTRIALS,data_len,data);
@@ -601,11 +601,13 @@ int lora_at_send(const struct device *dev, char *data,
 					buf,
 					&lora.sem_response,
 					LORA_AT_CMD_SETUP_TIMEOUT);
+			lora_at_unlock(d);
 		return ret;
 		
-		lora_at_unlock(d);
+	
 	}else{
 		LOG_INF("No connection");
+			lora_at_unlock(d);
 		return -1;
 	}
 	
@@ -674,9 +676,9 @@ void lora_stop(const struct device *dev)
 		return;
 	}
 lora->lora_status(LORA_EVT_STOP);
-// #if DT_NODE_HAS_STATUS(DT_NODELABEL(lora_pwr_en), okay)
-// 	TURN_DO_(lora_pwr_en, _OFF);
-// #endif
+#if DT_NODE_HAS_STATUS(DT_NODELABEL(lora_pwr_en), okay)
+	// TURN_DO_(lora_pwr_en, _OFF);
+#endif
 	lora->state = LORA_STOP;
 
 }
