@@ -643,18 +643,20 @@ void lora_start(const struct device *dev)
 
 	lora->state = LORA_START;
 #if DT_NODE_HAS_STATUS(DT_NODELABEL(lora_pwr_en), okay)
-		// TURN_DO_(lora_pwr_en, _ON);
+		TURN_DO_(lora_pwr_en, _ON);
 		// LOG_WRN("WAITING");
-		// k_msleep(2000);
+		k_msleep(2000);
  #endif
 	
 	if(lora_info == false)
 	{
 	lora_query_modem_info(lora);
-	lora_rejoin();
+	// lora_rejoin();
 	lora_info= true;
 	// k_work_reschedule(&lora->status_dwork,K_SECONDS(8));
 	}
+
+	lora_rejoin();
 	lora->lora_status(LORA_EVT_STATED);
 
 unlock:
@@ -664,22 +666,26 @@ lora_at_unlock(lora);
 void lora_stop(const struct device *dev)
 {
 	struct lora_modem *lora = dev->data;
-	// lora_at_lock(lora);
+	lora_at_lock(lora);
 	if(lora->state ==LORA_STOP)
 	{
 		LOG_ERR("lora_at is already %s", "stop");
+		lora_at_unlock(lora);
 		return;
 	}
 	if (lora->conn_status!=true)
 	{
+		lora_at_unlock(lora);
 		LOG_ERR("lora_at is still  %s", "not connected");
 		return;
 	}
 lora->lora_status(LORA_EVT_STOP);
 #if DT_NODE_HAS_STATUS(DT_NODELABEL(lora_pwr_en), okay)
-	// TURN_DO_(lora_pwr_en, _OFF);
+	TURN_DO_(lora_pwr_en, _OFF);
 #endif
 	lora->state = LORA_STOP;
+
+	lora_at_unlock(lora);
 
 }
 
