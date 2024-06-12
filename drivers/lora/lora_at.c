@@ -249,7 +249,8 @@ MODEM_CMD_DEFINE(lora_cmd_error)
 	{
 		case 0:
 		LOG_INF("NOT CONNECTED");
-		lora_rejoin();
+		// lora_rejoin();
+		
 		break;
 		default:
 		LOG_ERR("Unkown State %d",atoi(md));
@@ -377,19 +378,20 @@ MODEM_CMD_DEFINE(on_cmd_atcmdjoin)
 	modem_cmd_handler_set_error(data, 0);
 	
 		if(lora_flags_are_set(dev,LORA_CONNECTED)){
-			ret =0
+			ret =0;
 		}
 	TURN_DO_(green_led,_ON);
-	int d =lora_flag_set(dev,LORA_CONNECTED);
 	if (strcmp(status, "OK") == 0){
+	int d =lora_flag_set(dev,LORA_CONNECTED);
+	
 		LOG_INF("LORA CONNECTED %s",log_strdup(status));
 		lora.lora_status(2);
 		lora.conn_status = true;
 		lora.connect(4);
-		ret =0
+		ret =0;
 	}
 	else{
-		lora_rejoin();	
+		// lora_rejoin();	
 		LOG_ERR("LORA FAILED %s",log_strdup(status));
 	
 	ret= -ENOTCONN;
@@ -645,19 +647,19 @@ void lora_start(const struct device *dev)
 	lora->state = LORA_START;
 #if DT_NODE_HAS_STATUS(DT_NODELABEL(lora_pwr_en), okay)
 		TURN_DO_(lora_pwr_en, _ON);
-		// LOG_WRN("WAITING");
+		LOG_WRN("WAITING");
 		k_msleep(2000);
  #endif
 	
 	if(lora_info == false)
 	{
 	lora_query_modem_info(lora);
-	// lora_rejoin();
+	lora_rejoin();
 	lora_info= true;
 	// k_work_reschedule(&lora->status_dwork,K_SECONDS(8));
 	}
-
-	lora_rejoin();
+	// int d =lora_flag_set(dev,LORA_CONNECTING);
+	// lora_rejoin();
 	lora->lora_status(LORA_EVT_STATED);
 
 unlock:
