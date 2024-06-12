@@ -377,24 +377,25 @@ MODEM_CMD_DEFINE(on_cmd_atcmdjoin)
 	modem_cmd_handler_set_error(data, 0);
 	
 		if(lora_flags_are_set(dev,LORA_CONNECTED)){
-			return 0;
+			ret =0
 		}
 	TURN_DO_(green_led,_ON);
 	int d =lora_flag_set(dev,LORA_CONNECTED);
 	if (strcmp(status, "OK") == 0){
 		LOG_INF("LORA CONNECTED %s",log_strdup(status));
 		lora.lora_status(2);
+		lora.conn_status = true;
+		lora.connect(4);
+		ret =0
 	}
 	else{
 		lora_rejoin();	
 		LOG_ERR("LORA FAILED %s",log_strdup(status));
-
+	
+	ret= -ENOTCONN;
 	}
-	lora.connect(4);
-	lora.conn_status = true;
-
 	k_sem_give(&lora.sem_response);
-	return 0;
+	return ret;
 }
 static const struct modem_cmd response_cmds[] = {
 	MODEM_CMD_ARGS_MAX("OK+RECV:", lora_cmd_rev, 3U,4U,","),
@@ -410,7 +411,7 @@ void lora_rejoin(void)
 	ret =modem_cmd_send(&lora.context.iface,
 			&lora.context.cmd_handler,
 			NULL, 0U,
-			"AT+CJOIN=1,0,8,8",
+			"AT+CJOIN=1,1,8,8",
 			&lora.sem_response,
 			K_SECONDS(20));
 
