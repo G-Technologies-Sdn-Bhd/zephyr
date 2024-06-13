@@ -249,6 +249,7 @@ MODEM_CMD_DEFINE(lora_cmd_error)
 	{
 		case 0:
 		LOG_INF("NOT CONNECTED");
+		lora.connect(-1);
 		// lora_rejoin();
 		
 		break;
@@ -391,7 +392,8 @@ MODEM_CMD_DEFINE(on_cmd_atcmdjoin)
 		ret =0;
 	}
 	else{
-		// lora_rejoin();	
+		// lora_rejoin();
+		lora.connect(-1);	
 		LOG_ERR("LORA FAILED %s",log_strdup(status));
 	
 	ret= -ENOTCONN;
@@ -676,12 +678,12 @@ void lora_stop(const struct device *dev)
 		lora_at_unlock(lora);
 		return;
 	}
-	if (lora->conn_status!=true)
-	{
-		lora_at_unlock(lora);
-		LOG_ERR("lora_at is still  %s", "not connected");
-		return;
-	}
+	// if (lora->conn_status!=true)
+	// {
+	// 	lora_at_unlock(lora);
+	// 	LOG_ERR("lora_at is still  %s", "not connected");
+	// 	return;
+	// }
 lora->lora_status(LORA_EVT_STOP);
 #if DT_NODE_HAS_STATUS(DT_NODELABEL(lora_pwr_en), okay)
 	TURN_DO_(lora_pwr_en, _OFF);
