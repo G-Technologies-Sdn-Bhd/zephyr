@@ -134,7 +134,7 @@ static int vmszs_send_cmd(const struct device *dev, const enum vmszs_cmd cmd,
 
 #ifdef CONFIG_VMSZS_KEEP_MCU_AWAKE
 	if (has_rsp) {
-		pm_constraint_set(PM_STATE_SUSPEND_TO_IDLE);
+		pm_policy_state_lock_get(PM_STATE_SUSPEND_TO_IDLE,PM_ALL_SUBSTATES);
 	}
 #endif
 
@@ -144,7 +144,7 @@ static int vmszs_send_cmd(const struct device *dev, const enum vmszs_cmd cmd,
 		uart_irq_rx_enable(uart_dev);
 		ret = k_sem_take(&d->rx_sem, VMSZS_WAIT);
 #ifdef CONFIG_VMSZS_KEEP_MCU_AWAKE
-		pm_constraint_release(PM_STATE_SUSPEND_TO_IDLE);
+		pm_policy_state_lock_put(PM_STATE_SUSPEND_TO_IDLE,PM_ALL_SUBSTATES);
 #endif
 	}
 
