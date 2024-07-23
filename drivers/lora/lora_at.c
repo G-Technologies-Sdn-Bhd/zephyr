@@ -33,12 +33,12 @@
 #include <zephyr/drivers/modem/quectel.h>
 #include <zephyr/drivers/console/uart_mux.h>
 #include <zephyr/drivers/modem/gsm_ppp.h>
-// #include "lib/do_ctrl.h"
+#include "lib/do_ctrl.h"
 #include "modem_context.h"
 #include "modem_iface_uart.h"
 #include "modem_cmd_handler.h"
 #include "../console/gsm_mux.h"
-// #include "components/seismic.h"
+#include "components/seismic.h"
 
 // #include <pm/pm.h>
 
@@ -381,7 +381,7 @@ MODEM_CMD_DEFINE(on_cmd_atcmdjoin)
 		if(lora_flags_are_set(dev,LORA_CONNECTED)){
 			ret =0;
 		}
-	//TURN_DO_(green_led,_ON);
+	TURN_DO_(green_led,_ON);
 	if (strcmp(status, "OK") == 0){
 	int d =lora_flag_set(dev,LORA_CONNECTED);
 
@@ -445,7 +445,7 @@ void lora_work(struct k_work *work)
 	}
 	else
 	{
-			//TURN_DO_(green_led,_ON);
+			TURN_DO_(green_led,_ON);
 			lora.connect(lora.lora_con_status);
 			lora.conn_status = true;
 	}
@@ -464,7 +464,7 @@ static int lora_at_init(const struct device *dev)
 	struct lora_modem *lora = dev->data;
 	int r;
 	lora->dev = dev;
-	//TURN_DO_(blue_led,_OFF);
+	TURN_DO_(blue_led,_OFF);
 	(void)k_mutex_init(&lora->lock);
 
 	k_sem_init(&lora->sem_response, 0, 1);
@@ -653,7 +653,7 @@ void lora_start(const struct device *dev)
 
 	lora->state = LORA_START;
 #if DT_NODE_HAS_STATUS(DT_NODELABEL(lora_pwr_en), okay)
-		//TURN_DO_(lora_pwr_en, _ON);
+		TURN_DO_(lora_pwr_en, _ON);
 		LOG_WRN("WAITING");
 		k_msleep(2000);
  #endif
@@ -691,7 +691,7 @@ void lora_stop(const struct device *dev)
 	}
 // lora->lora_status(LORA_EVT_STOP);
 #if DT_NODE_HAS_STATUS(DT_NODELABEL(lora_pwr_en), okay)
-	//TURN_DO_(lora_pwr_en, _OFF);
+	TURN_DO_(lora_pwr_en, _OFF);
 #endif
 	lora->state = LORA_STOP;
 
