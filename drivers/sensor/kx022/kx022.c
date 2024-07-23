@@ -8,6 +8,7 @@
 #define DT_DRV_COMPAT kionix_kx022
 
 #include "kx022.h"
+#include <zephyr/pm/device.h>
 
 #if DT_NUM_INST_STATUS_OKAY(DT_DRV_COMPAT) == 0
 #error "KX022 driver enabled without any devices"
@@ -433,7 +434,7 @@ static inline void kx022_convert(struct sensor_value *val, int raw_val, float ga
 void kx_buffer_get(const struct device *dev,uint8_t *kx_rb)
 {
 	struct kx022_data *data = dev->data;
-	
+
 	 memcpy(kx_rb,data->bf_data,MAX_DATA_SIZE);
 }
 static inline void kx022_convert_buffer(struct sensor_value *val, struct kx022_data *data,int d)
@@ -507,13 +508,35 @@ static int kx022_channel_get(const struct device *dev, enum sensor_channel chan,
 }
 
 static const struct sensor_driver_api kx022_api_funcs = {
-	.attr_set = kx022_attr_set,
 #ifdef CONFIG_KX022_TRIGGER
+	.attr_set = kx022_attr_set,
 	.trigger_set = kx022_trigger_set,
 #endif
 	.sample_fetch = kx022_sample_fetch,
 	.channel_get = kx022_channel_get,
 };
+
+#ifdef CONFIG_PM_DEVICE
+
+static int kx022_pm_action(const struct device *dev,
+			      enum pm_device_action action)
+{
+	switch(action)
+	{
+		case PM_DEVICE_ACTION_RESUME:
+			LOG_INF("kx022 Resuming\n");
+			break;
+		case PM_DEVICE_ACTION_SUSPEND:
+			LOG_INF("kx022 Suspending\n");
+			break;
+		default:
+			return -ENOTSUP;
+	}
+
+	return 0;
+}
+
+#endif //CONFIG_PM_DEVICE
 
 static int kx022_init(const struct device *dev)
 {
@@ -630,7 +653,8 @@ static int kx022_init(const struct device *dev)
 		.tilt_angle_hl = DT_INST_PROP(inst, tilt_angle_hl),                                \
 		COND_CODE_1(DT_INST_NODE_HAS_PROP(inst, int_gpios), (KX022_CFG_IRQ(inst)), ())     \
 	};                                                                                         \
-	DEVICE_DT_INST_DEFINE(inst, kx022_init, NULL, &dev_data_##inst, &dev_config_##inst,        \
+	PM_DEVICE_DT_INST_DEFINE(inst, kx022_pm_action);                                        \
+	SENSOR_DEVICE_DT_INST_DEFINE(inst, kx022_init, PM_DEVICE_DT_INST_GET(inst), &dev_data_##inst, &dev_config_##inst,        \
 			      POST_KERNEL, CONFIG_SENSOR_INIT_PRIORITY, &kx022_api_funcs);
 
 DT_INST_FOREACH_STATUS_OKAY(KX022_INIT)
