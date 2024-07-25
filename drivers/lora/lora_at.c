@@ -71,7 +71,6 @@ static struct lora_modem{
 
 	struct modem_context context;
 
-	struct k_mutex lock;
 	struct k_work_delayable status_dwork;
 	struct modem_cmd_handler_data cmd_handler_data;
 	uint8_t cmd_match_buf[LORA_AT_CMD_READ_BUF];
@@ -106,6 +105,7 @@ static struct lora_modem{
 	uint8_t lora_con_status;
 }lora;
 
+K_MUTEX_DEFINE(lora_mutex);
 
 NET_BUF_POOL_DEFINE(lora_at_recv_pool, LORA_AT_RECV_MAX_BUF, LORA_AT_RECV_BUF_SIZE,
 		    0, NULL);
@@ -144,17 +144,16 @@ static inline bool lora_flags_are_set(struct lora_modem *dev, uint8_t flags)
 	return (dev->flags & flags) != 0;
 }
 
-
 static inline void lora_at_lock(struct lora_modem *lora)
 {
-	int ret = k_mutex_lock(&lora->lock, K_FOREVER);
+	int ret = k_mutex_lock(&lora_mutex, K_FOREVER);
 
 	__ASSERT(ret == 0, "%s failed: %d", "k_mutex_lock", ret);
 }
 
 static inline void lora_at_unlock(struct lora_modem *lora)
 {
-	int ret = k_mutex_unlock(&lora->lock);
+	int ret = k_mutex_unlock(&lora_mutex);
 
 	__ASSERT(ret == 0, "%s failed: %d", "k_mutex_unlock", ret);
 }
@@ -465,7 +464,6 @@ static int lora_at_init(const struct device *dev)
 	int r;
 	lora->dev = dev;
 	TURN_DO_(blue_led,_OFF);
-	(void)k_mutex_init(&lora->lock);
 
 	k_sem_init(&lora->sem_response, 0, 1);
 

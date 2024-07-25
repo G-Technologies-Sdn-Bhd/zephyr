@@ -26,10 +26,15 @@ FUNC_NORETURN __weak void arch_system_halt(unsigned int reason)
 	 * is enabled?
 	 */
 
+
+	#if 1 /*instead  device hang it will reset*/
+	NVIC_SystemReset();
+	#else
 	(void)arch_irq_lock();
 	for (;;) {
 		/* Spin endlessly */
 	}
+	#endif
 }
 /* LCOV_EXCL_STOP */
 
