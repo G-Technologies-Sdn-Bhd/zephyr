@@ -34,6 +34,8 @@ enum lora_evt{
 	LORA_EVT_STATED,
 	LORA_EVT_CONNECTED,
 	LORA_EVT_STOP,
+	LORA_EVT_RECV,
+	LORA_EVT_SEND_ERR,
 };
 typedef void (*lora_cb)(int *evt);
 typedef void (*lora_connect_cb)(int *evt);
