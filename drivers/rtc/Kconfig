@@ -1,0 +1,23 @@
+# Copyright (c) 2022 Bjarki Arge Andreasen
+# SPDX-License-Identifier: Apache-2.0
+
+menuconfig RTC
+	bool "Real-Time Clock (RTC) drivers"
+	help
+	  Enable RTC driver configuration.
+
+if RTC
+
+module = RTC
+module-str = rtc
+source "subsys/logging/Kconfig.template.log_config"
+
+config RTC_INIT_PRIORITY
+	int "RTC init priority"
+	default KERNEL_INIT_PRIORITY_DEVICE
+	help
+	  RTC device driver initialization priority.
+
+source "drivers/rtc/Kconfig.stm32"
+
+endif # RTC
