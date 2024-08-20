@@ -982,7 +982,6 @@ static int esp_mgmt_ap_disable(const struct device *dev)
 
 static void esp_init_work(struct k_work *work)
 {
-	printf("-------------------------\r\n");
 	struct esp_data *dev;
 	int ret;
 	static const struct setup_cmd setup_cmds[] = {
