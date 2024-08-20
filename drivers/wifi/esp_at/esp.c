@@ -982,6 +982,7 @@ static int esp_mgmt_ap_disable(const struct device *dev)
 
 static void esp_init_work(struct k_work *work)
 {
+	printf("-------------------------\r\n");
 	struct esp_data *dev;
 	int ret;
 	static const struct setup_cmd setup_cmds[] = {
@@ -1099,7 +1100,9 @@ static void esp_reset(struct esp_data *dev)
 	modem_pin_write(&dev->mctx, ESP_POWER, 0);
 	k_sleep(K_MSEC(100));
 	modem_pin_write(&dev->mctx, ESP_POWER, 1);
-#elif DT_INST_NODE_HAS_PROP(0, reset_gpios)
+	k_sleep(K_MSEC(100));
+#endif
+#if DT_INST_NODE_HAS_PROP(0, reset_gpios)
 	modem_pin_write(&dev->mctx, ESP_RESET, 1);
 	k_sleep(K_MSEC(100));
 	modem_pin_write(&dev->mctx, ESP_RESET, 0);
