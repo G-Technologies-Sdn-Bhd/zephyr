@@ -433,7 +433,7 @@ static inline void kx022_convert(struct sensor_value *val, int raw_val, float ga
 void kx_buffer_get(const struct device *dev,uint8_t *kx_rb)
 {
 	struct kx022_data *data = dev->data;
-	
+
 	 memcpy(kx_rb,data->bf_data,MAX_DATA_SIZE);
 }
 static inline void kx022_convert_buffer(struct sensor_value *val, struct kx022_data *data,int d)
@@ -604,6 +604,32 @@ static int kx022_init(const struct device *dev)
 	return 0;
 }
 
+#if IS_ENABLED(CONFIG_PM_DEVICE)
+static int kx022_pm_control(const struct device *dev,
+				     enum pm_device_action action)
+{
+	struct kx022_data *data = dev->data;
+	uint8_t val =  0<<KX022_CNTL1_RES_SHIFT; //set low current mode
+	switch (action) {
+		case PM_DEVICE_ACTION_SUSPEND:
+			kx022_standby_mode(dev);
+			int ret = data->hw_tf->update_reg(dev, KX022_REG_CNTL1, KX022_MASK_CNTL1_RES,val);
+			if (ret) {
+				printf("%s: Failed to update %s: %d", dev->name, "RES", ret);
+				return ret;
+			}
+			kx022_operating_mode(dev);
+			printf("KX022 Suspend\n");
+			break;
+
+		default:
+			return -ENOTSUP;
+	}
+
+	return 0;
+}
+#endif /* IS_ENABLED(CONFIG_PM_DEVICE) */
+
 #ifdef CONFIG_KX022_TRIGGER
 #define KX022_CFG_IRQ(inst)                                                                        \
 	.gpio_int = GPIO_DT_SPEC_INST_GET(inst, int_gpios), .int_pin = DT_INST_PROP(inst, int_pin),
@@ -630,7 +656,7 @@ static int kx022_init(const struct device *dev)
 		.tilt_angle_hl = DT_INST_PROP(inst, tilt_angle_hl),                                \
 		COND_CODE_1(DT_INST_NODE_HAS_PROP(inst, int_gpios), (KX022_CFG_IRQ(inst)), ())     \
 	};                                                                                         \
-	DEVICE_DT_INST_DEFINE(inst, kx022_init, NULL, &dev_data_##inst, &dev_config_##inst,        \
+	DEVICE_DT_INST_DEFINE(inst, kx022_init, kx022_pm_control, &dev_data_##inst, &dev_config_##inst,        \
 			      POST_KERNEL, CONFIG_SENSOR_INIT_PRIORITY, &kx022_api_funcs);
 
 DT_INST_FOREACH_STATUS_OKAY(KX022_INIT)
