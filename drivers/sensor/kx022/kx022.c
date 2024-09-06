@@ -605,21 +605,65 @@ static int kx022_init(const struct device *dev)
 }
 
 #if IS_ENABLED(CONFIG_PM_DEVICE)
+int kx022_suspend_setup(const struct device *dev)
+{
+	struct kx022_data *data = dev->data;
+	int ret;
+
+	ret = kx022_standby_mode(dev);
+	if (ret) {
+		return ret;
+	}
+
+	ret = data->hw_tf->update_reg(dev, KX022_REG_CNTL1, KX022_MASK_CNTL1_RES,false);
+	if (ret) {
+		printf("%s: Failed to %s: %d\n", dev->name, "Switch to Low Power mode", ret);
+		goto exit;
+	}
+
+	/* Enable motion detection */
+	ret = data->hw_tf->update_reg(dev, KX022_REG_CNTL1, KX022_MASK_CNTL1_WUFE,
+				      KX022_CNTL1_WUFE);
+	if (ret) {
+		printk("%s: Failed to %s: %d\n", dev->name, "Enabled Wakeup Interrupt", ret);
+		goto exit;
+	}
+
+	ret = data->hw_tf->update_reg(dev, KX022_REG_CNTL1, KX022_MASK_CNTL1_DRDYE,
+				     false);
+	if (ret) {
+		printk("%s: Failed to %s: %d\n", dev->name, "Disable Data Reporting Interrupt", ret);
+		goto exit;
+	}
+
+	ret = data->hw_tf->write_reg(dev, KX022_REG_INC2, KX022_DEFAULT_INC2);
+	if (ret) {
+		printk("%s: Failed to write %s: %d\n", dev->name, "Default motion axis", ret);
+		goto exit;
+	}
+
+	ret = data->hw_tf->update_reg(dev, KX022_REG_INC4, KX022_MASK_INC4_WUFI1,
+				      KX022_INC4_WUFI1_SET);
+	if (ret) {
+		printk("%s: Failed to %s: %d\n", dev->name, "Enable Interrupt type Wakeup", ret);
+	}
+
+	ret = data->hw_tf->update_reg(dev, KX022_REG_INC4, KX022_MASK_INC4_DRDYI1,
+				      false);
+	if (ret) {
+		printk("%s: Failed to %s: %d\n", dev->name, "Disable Interrupt type Data Ready", ret);
+	}
+exit:
+	(void)kx022_operating_mode(dev);
+	return ret;
+}
 static int kx022_pm_control(const struct device *dev,
 				     enum pm_device_action action)
 {
-	struct kx022_data *data = dev->data;
-	uint8_t val =  0<<KX022_CNTL1_RES_SHIFT; //set low current mode
 	switch (action) {
 		case PM_DEVICE_ACTION_SUSPEND:
-			kx022_standby_mode(dev);
-			int ret = data->hw_tf->update_reg(dev, KX022_REG_CNTL1, KX022_MASK_CNTL1_RES,val);
-			if (ret) {
-				printf("%s: Failed to update %s: %d", dev->name, "RES", ret);
-				return ret;
-			}
-			kx022_operating_mode(dev);
-			printf("KX022 Suspend\n");
+			kx022_suspend_setup(dev);
+			printk("KX022 Suspend\n");
 			break;
 
 		default:
