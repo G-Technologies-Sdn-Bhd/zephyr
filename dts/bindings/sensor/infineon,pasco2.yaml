@@ -1,0 +1,52 @@
+# Copyright (c) 2023 G-Technologies Sdn. Bhd.
+# SPDX-License-Identifier: Apache-2.0
+
+description: PAS CO2 sensor with 2-Wire Interface.
+
+compatible: "infineon,pasco2"
+
+include: i2c-device.yaml
+properties:
+    int-gpios:
+      type: phandle-array
+      required: false
+      description: |
+        ALERT pin.
+
+        This pin signals active high when produced by the sensor.  The
+        property value should ensure the flags properly describe the
+        signal that is presented to the driver.
+
+    int-pin:
+      type: int
+      required: false
+      default: 1
+      description: |
+          Specify the default accelerometer full-scale range.
+          An X value for the config represents a range of +/- X G. Valid values
+          are:
+          0:  +/- 2g
+          1:  +/- 4g
+          2:  +/- 8g
+
+    sampling_rate:
+      type: int
+      required: false
+      default: 60
+      description: |
+        Specify the default sampling rate min 60s.
+
+    calibration_ref:
+      type: int
+      required: false
+      default: 400
+      description: |
+        Specify the default calibration referrence 400ppm.
+
+    pressure_ref:
+      type: int
+      required: false
+      default: 900
+      description: |
+        Specify the default pressure referrenceThe valid range
+        of operation is 750 hPa to 1150 hPa.

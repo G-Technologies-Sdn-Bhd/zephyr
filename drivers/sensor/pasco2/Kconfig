@@ -1,0 +1,36 @@
+# Copyright (c) 2021 Leica Geosystems AG
+# SPDX-License-Identifier: Apache-2.0
+
+# config PASCO2
+# 	bool "gas sensor for CO2 sensing"
+# 	depends on I2C
+# 	help
+#         Enable driver for PASCO2 gas sensor.
+# endif
+
+
+
+menuconfig PASCO2
+	bool "PasCO2 sensor"
+	depends on I2C
+	help
+	  Enable driver for the PASCO2 CO2 gas sensor.
+
+if PASCO2
+
+config PASCO2_TRIGGER
+	bool "Trigger"
+	depends on GPIO
+
+choice
+	prompt "Measurement mode"
+	default PASCO2_PERIODIC_MODE
+
+config  PASCO2_SINGLE_SHOT_MODE
+	bool "single shot"
+
+config  PASCO2_PERIODIC_MODE
+	bool "periodic data acquisition"
+endchoice
+
+endif
