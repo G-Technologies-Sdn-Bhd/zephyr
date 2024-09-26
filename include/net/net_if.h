@@ -2192,6 +2192,7 @@ bool net_if_is_suspended(struct net_if *iface);
 /** @cond INTERNAL_HIDDEN */
 struct net_if_api {
 	void (*init)(struct net_if *iface);
+	void (*power)(struct net_if *iface,bool onoff);
 };
 
 #if defined(CONFIG_NET_DHCPV4) && defined(CONFIG_NET_NATIVE_IPV4)

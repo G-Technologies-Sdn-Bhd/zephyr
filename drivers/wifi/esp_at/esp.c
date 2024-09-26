@@ -1136,8 +1136,18 @@ static void esp_iface_init(struct net_if *iface)
 	esp_reset(data);
 }
 
+static void esp_power(struct net_if *iface,bool onoff)
+{
+	const struct device *dev = net_if_get_device(iface);
+	struct esp_data *data = dev->data;
+#if DT_INST_NODE_HAS_PROP(0, power_gpios)
+	modem_pin_write(&data->mctx, ESP_POWER, onoff);
+#endif
+}
+
 static const struct net_wifi_mgmt_offload esp_api = {
 	.iface_api.init = esp_iface_init,
+	.iface_api.power = esp_power,
 	.scan		= esp_mgmt_scan,
 	.connect	= esp_mgmt_connect,
 	.disconnect	= esp_mgmt_disconnect,
