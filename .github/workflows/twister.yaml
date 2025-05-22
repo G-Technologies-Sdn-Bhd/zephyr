@@ -17,12 +17,11 @@ concurrency:
 
 jobs:
   twister-build-prep:
-    runs-on: zephyr-runner-linux-x64-4xlarge
+    runs-on:
+      group: zephyr-runner-v2-linux-x64-4xlarge
     container:
       image: zephyrprojectrtos/ci:v0.18.4
       options: '--entrypoint /bin/bash'
-      volumes:
-        - /repo-cache/zephyrproject:/github/cache/zephyrproject
     outputs:
       subset: ${{ steps.output-services.outputs.subset }}
       size: ${{ steps.output-services.outputs.size }}
@@ -40,7 +39,7 @@ jobs:
         if: github.event_name == 'pull_request_target'
         continue-on-error: true
         run: |
-          git clone --shared /github/cache/zephyrproject/zephyr .
+          git clone --shared /repo-cache/cache/zephyrproject/zephyr .
           git remote set-url origin ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}
 
       - name: Checkout
@@ -106,14 +105,13 @@ jobs:
           echo "size=${size}" >> $GITHUB_OUTPUT
 
   twister-build:
-    runs-on: zephyr-runner-linux-x64-4xlarge
+    runs-on:
+      group: zephyr-runner-v2-linux-x64-4xlarge
     needs: twister-build-prep
     if: needs.twister-build-prep.outputs.size != 0
     container:
       image: zephyrprojectrtos/ci:v0.18.4
       options: '--entrypoint /bin/bash'
-      volumes:
-        - /repo-cache/zephyrproject:/github/cache/zephyrproject
     strategy:
       fail-fast: false
       matrix:
@@ -131,7 +129,7 @@ jobs:
       - name: Clone cached Zephyr repository
         continue-on-error: true
         run: |
-          git clone --shared /github/cache/zephyrproject/zephyr .
+          git clone --shared /repo-cache/cache/zephyrproject/zephyr .
           git remote set-url origin ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}
 
       - name: Checkout
@@ -154,7 +152,7 @@ jobs:
 
           west init -l . || true
           west config --global update.narrow true
-          west update --path-cache /github/cache/zephyrproject 2>&1 1> west.update.log || west update --path-cache /github/cache/zephyrproject 2>&1 1> west.update.log || ( rm -rf ../modules && west update --path-cache /github/cache/zephyrproject)
+          west update --path-cache /repo-cache/cache/zephyrproject 2>&1 1> west.update.log || west update --path-cache /repo-cache/cache/zephyrproject 2>&1 1> west.update.log || ( rm -rf ../modules && west update --path-cache /repo-cache/cache/zephyrproject)
           west forall -c 'git reset --hard HEAD'
 
       - name: Check Environment
@@ -221,7 +219,7 @@ jobs:
 
       - name: Upload Unit Test Results
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Unit Test Results (Subset ${{ matrix.subset }})
           if-no-files-found: ignore
@@ -238,7 +236,7 @@ jobs:
 
     steps:
       - name: Download Artifacts
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4
         with:
           path: artifacts
 
