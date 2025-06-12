@@ -158,7 +158,9 @@ manifest:
       groups:
         - crypto
     - name: mcuboot
-      revision: 70bfbd21cdf5f6d1402bc8d0031e197222ed2ec0
+      # revision: 70bfbd21cdf5f6d1402bc8d0031e197222ed2ec0
+      url: https://github.com/AzamLukman/mcuboot.git
+      revision: v2.7
       path: bootloader/mcuboot
     - name: mcumgr
       revision: 480cb48e42703e49595a697bb2410a1fcd105f5e
