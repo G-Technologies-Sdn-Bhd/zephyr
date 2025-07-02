@@ -314,7 +314,7 @@ MODEM_CMD_DEFINE(on_cmd_atcmdinfo_cops)
 #if defined(CONFIG_MODEM_CELL_INFO)
 		if (argc >= 3) {
 			gsm.context.data_operator = unquoted_atoi(argv[2], 10);
-			LOG_INF("operator: %u",
+			LOG_DBG("operator: %u",
 				gsm.context.data_operator);
 		}
 #endif
@@ -327,6 +327,54 @@ MODEM_CMD_DEFINE(on_cmd_atcmdinfo_cops)
 
 	return 0;
 }
+#if defined(CONFIG_MODEM_CELL_INFO)
+MODEM_CMD_DEFINE(on_cmd_atcmdinfo_networks)
+{
+    const char *full_str = argv[0];
+    const char *rat = NULL;
+    int gsmConn = -1;
+
+
+    // Skip the prefix if it exists
+    if (strncmp(full_str, "+QNWINFO: ", 10) == 0) {
+        rat = full_str + 10;
+    } else {
+        rat = full_str;
+    }
+
+    // Remove surrounding quotes if present
+    if (rat[0] == '"' && rat[strlen(rat) - 1] == '"') {
+        // Create a trimmed version on stack
+        static char rat_clean[32];
+        size_t len = strlen(rat) - 2;
+        if (len >= sizeof(rat_clean)) len = sizeof(rat_clean) - 1;
+        strncpy(rat_clean, rat + 1, len);
+        rat_clean[len] = '\0';
+        rat = rat_clean;
+    }
+
+    // Match known RATs
+    if (strcmp(rat, "GSM") == 0 || strcmp(rat, "GPRS") == 0 || strcmp(rat, "EDGE") == 0) {
+        gsmConn = 1;  // 2G
+    } else if (strcmp(rat, "WCDMA") == 0 || strcmp(rat, "HSDPA") == 0 ||
+               strcmp(rat, "HSUPA") == 0 || strcmp(rat, "HSPA+") == 0) {
+        gsmConn = 2;  // 3G
+    } else if (strcmp(rat, "FDD LTE") == 0 || strcmp(rat, "TDD LTE") == 0) {
+        gsmConn = 3;  // 4G
+    } else if (strcmp(rat, "NONE") == 0) {
+        gsmConn = 0;  // No network
+    }
+	gsm.context.ntwk_info =  gsmConn;
+
+	gsm.context.data_operator = unquoted_atoi(argv[1], 10);
+    LOG_INF("gsmConn: %d %d", gsmConn, unquoted_atoi(argv[1], 10));
+
+    // Save to struct if needed
+    // ctx.data.proc.fields.gsmConn = gsmConn;
+
+    return 0;
+}
+#endif
 
 /*
  * Provide modem info if modem shell is enabled. This can be shown with
@@ -477,8 +525,9 @@ MODEM_CMD_DEFINE(on_cmd_atcmdinfo_cereg)
 static const struct setup_cmd query_cellinfo_cmds[] = {
 	SETUP_CMD_NOHANDLE("AT+CEREG=2"),
 	SETUP_CMD("AT+CEREG?", "", on_cmd_atcmdinfo_cereg, 5U, ","),
-	SETUP_CMD_NOHANDLE("AT+COPS=3,2"),
+	// SETUP_CMD_NOHANDLE("AT+COPS=3,2"),
 	SETUP_CMD("AT+COPS?", "", on_cmd_atcmdinfo_cops, 3U, ","),
+	SETUP_CMD("AT+QNWINFO", "", on_cmd_atcmdinfo_networks, 3U, ","),
 };
 
 static int gsm_query_cellinfo(struct gsm_modem *gsm)
@@ -975,9 +1024,10 @@ static void gsm_finalize_connection(struct k_work *work)
 				     ARRAY_SIZE(response_cmds),
 				     "AT", &gsm->sem_response,
 				     GSM_CMD_AT_TIMEOUT);
+
 		if (ret < 0) {
 			LOG_ERR("%s returned %d, %s", "AT", ret, "retrying...");
-			
+
 			if(at_retry < 3)
 			{
 				(void)gsm_work_reschedule(&gsm->gsm_configure_work, K_SECONDS(1));
@@ -1000,7 +1050,7 @@ static void gsm_finalize_connection(struct k_work *work)
 				gsm->state = GSM_PPP_PWR_SRC_OFF;
 				(void)gsm_work_reschedule(&gsm->gsm_configure_work, K_SECONDS(30));
 			}
-			else{	
+			else{
 				gmoc_reboot_cold(GMOC_GSM_AT_FAILED);
 			}
 			at_retry++;
@@ -1008,7 +1058,7 @@ static void gsm_finalize_connection(struct k_work *work)
 		}else{
 			at_retry = 0;
 		}
-	
+
 	}
 	gsm->state = GSM_PPP_SETUP;
 
@@ -1058,7 +1108,7 @@ registering:
 				    "AT+CREG?",
 				    &gsm->sem_response,
 				    GSM_CMD_SETUP_TIMEOUT);
-	
+
 	if ((ret < 0)|| ((gsm->net_state != GSM_ROAMING) &&
 			 (gsm->net_state != GSM_HOME_NETWORK))) {
 		if (!gsm->retries) {
@@ -1193,7 +1243,7 @@ attaching:
 
 		if (IS_ENABLED(CONFIG_GSM_MUX) && gsm->state != GSM_PPP_STATE_ERROR) {
 			(void)gsm_work_reschedule(&gsm->rssi_work_handle,
-						  K_SECONDS(CONFIG_MODEM_GSM_RSSI_POLLING_PERIOD));
+						  K_SECONDS(5));
 		}
 	}
 unlock:
@@ -1866,6 +1916,18 @@ wait_at:
 		goto retry;
 	}
 
+	// ret = modem_cmd_send(&gsm->context.iface,
+	// 		     &gsm->context.cmd_handler,
+	// 		     &response_cmds[0],
+	// 		     ARRAY_SIZE(response_cmds),
+	// 		     "AT+QRST=1", &gsm->sem_response,
+	// 		     GSM_CMD_AT_TIMEOUT);
+	// if (ret < 0) {
+	// 	LOG_DBG("modem not ready %d", ret);
+	// 	goto retry;
+	// }
+	// k_msleep(10000);
+
 	gsm->state = GSM_PPP_AT_RDY;
 
 #if IS_ENABLED(CONFIG_MODEM_GSM_QUECTEL_GNSS_AUTOSTART)
@@ -1937,7 +1999,18 @@ char *gsm_ppp_get_imsi(const struct device *dev)
 
 	return gsm->context.data_imsi;
 }
-
+#if defined(CONFIG_MODEM_CELL_INFO)
+int gsm_ppp_get_operator(const struct device *dev)
+{
+	struct gsm_modem *gsm = dev->data;
+	return gsm->context.data_operator;
+}
+int gsm_ppp_get_ntwk_info(const struct device *dev)
+{
+	struct gsm_modem *gsm = dev->data;
+	return gsm->context.ntwk_info;
+}
+#endif
 void gsm_ppp_start(const struct device *dev)
 {
 	struct gsm_modem *gsm = dev->data;

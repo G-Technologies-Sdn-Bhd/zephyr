@@ -70,6 +70,7 @@ struct modem_context {
 	int   data_operator;
 	int   data_lac;
 	int   data_cellid;
+	int   ntwk_info;
 #endif
 	int   *data_rssi;
 	bool  is_automatic_oper;
