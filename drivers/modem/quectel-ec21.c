@@ -433,8 +433,8 @@ MODEM_CMD_DEFINE(on_cmd_unsol_close)
 MODEM_CMD_DEFINE(on_cmd_unsol_rdy)
 {
 	LOG_INF("on_cmd_unsol_rdy-------->");
-	// k_sem_give(&mdata.sem_response);
-	 k_sem_give(&sem_rdy);
+	k_sem_give(&mdata.sem_response);
+	//  k_sem_give(&sem_rdy);
 	return 0;
 }
 
@@ -943,7 +943,7 @@ static const struct modem_cmd response_cmds[] = {
 static const struct modem_cmd unsol_cmds[] = {
 	MODEM_CMD("+QIURC: \"recv\",",	   on_cmd_unsol_recv,  1U, ""),
 	MODEM_CMD("+QIURC: \"closed\",",   on_cmd_unsol_close, 1U, ""),
-	MODEM_CMD(MDM_UNSOL_RDY, on_cmd_unsol_rdy, 0U, ""),
+	MODEM_CMD("RDY", on_cmd_unsol_rdy, 0U, ""),
 	// MODEM_CMD("NORMAL POWER DOWN", on_cmd_unsol_normal_power_down, 0U, ""),
 };
 
@@ -1032,7 +1032,7 @@ restart:
 	// k_sem_reset(&mdata.sem_response);
 	/* Let the modem respond. */
 	LOG_INF("Waiting for EC21 to boot...");
-	k_sleep(K_SECONDS(10));  // Give time for RDY to appear
+	// k_sleep(K_SECONDS(10));  // Give time for RDY to appear
 
 	ret = modem_cmd_send(&mctx.iface, &mctx.cmd_handler,
 			&response_cmds[0], ARRAY_SIZE(response_cmds), "AT",
@@ -1040,14 +1040,14 @@ restart:
 
 	if (ret < 0) {
 		LOG_ERR("No response to initial AT");
-		// goto error;
+		goto error;
 	}
 	LOG_INF("Waiting for modem to respond");
 
-	ret = k_sem_take(&sem_rdy,  MDM_MAX_BOOT_TIME);
+	ret = k_sem_take(&mdata.sem_response,  MDM_MAX_BOOT_TIME);
 	if (ret < 0) {
 		LOG_ERR("Timeout waiting for RDY");
-		goto error;
+		// goto error;
 	}
 	// ret = k_sem_take(&sem_rdy,  MDM_MAX_BOOT_TIME);
 	// if (ret < 0) {
@@ -1210,8 +1210,8 @@ static int modem_init(const struct device *dev)
 		.match_buf = &mdata.cmd_match_buf[0],
 		.match_buf_len = sizeof(mdata.cmd_match_buf),
 		.buf_pool = &mdm_recv_pool,
-		.alloc_timeout = K_NO_WAIT,//BUF_ALLOC_TIMEOUT,
-		.eol = "\r",
+		.alloc_timeout = K_NO_WAIT,
+		.eol = "\r\n",
 		.user_data = NULL,
 		.response_cmds = response_cmds,
 		.response_cmds_len = ARRAY_SIZE(response_cmds),
@@ -1301,7 +1301,7 @@ static int modem_init(const struct device *dev)
 
 	/* Init RSSI query */
 	k_work_init_delayable(&mdata.rssi_query_work, modem_rssi_query_work);
-	return 0; //modem_setup();
+	return modem_setup();
 
 error:
 	return ret;
