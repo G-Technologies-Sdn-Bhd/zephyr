@@ -542,6 +542,7 @@ static int gsm_query_cellinfo(struct gsm_modem *gsm)
 					   GSM_CMD_SETUP_TIMEOUT);
 	if (ret < 0) {
 		LOG_WRN("modem query for cell info returned %d", ret);
+		(void)gsm_work_reschedule(&gsm->gsm_configure_work, K_SECONDS(1));
 	}
 
 	return ret;
