@@ -15,32 +15,14 @@
 #define HAS_PWR_SRC DT_INST_NODE_HAS_PROP(0, power_src_gpios)
 #define HAS_PWR_KEY DT_INST_NODE_HAS_PROP(0, power_key_gpios)
 
-#if HAS_PWR_SRC || HAS_PWR_KEY
-/* pin settings */
-enum mdm_control_pins {
 #if HAS_PWR_SRC
-	MDM_PWR_SRC,
+static const struct gpio_dt_spec modem_power_src =
+    GPIO_DT_SPEC_GET(DT_DRV_INST(0), power_src_gpios);
 #endif
 #if HAS_PWR_KEY
-	MDM_PWR_KEY,
+static const struct gpio_dt_spec modem_power_key =
+    GPIO_DT_SPEC_GET(DT_DRV_INST(0), power_key_gpios);
 #endif
-};
-
-/* Modem pins - Power, Reset & others. */
-static struct modem_pin modem_pins[] = {
-#if HAS_PWR_SRC
-	/* MDM_POWER SUPPLY */
-	MODEM_PIN(DT_INST_GPIO_LABEL(0, power_src_gpios), DT_INST_GPIO_PIN(0, power_src_gpios),
-		  DT_INST_GPIO_FLAGS(0, power_src_gpios) | GPIO_OUTPUT_LOW),
-#endif
-
-#if HAS_PWR_KEY
-	/* MDM_POWER_KEY */
-	MODEM_PIN(DT_INST_GPIO_LABEL(0, power_key_gpios), DT_INST_GPIO_PIN(0, power_key_gpios),
-		  DT_INST_GPIO_FLAGS(0, power_key_gpios) | GPIO_OUTPUT_LOW),
-#endif
-};
-#endif /* HAS_PWR_SRC || HAS_PWR_KEY */
 
 /**
  * @brief  Disable power source of the modem.
@@ -49,10 +31,12 @@ static struct modem_pin modem_pins[] = {
  *
  * @retval None.
  */
-void disable_power_source(struct modem_context *ctx)
+static inline void disable_power_source(void)
 {
 #if HAS_PWR_SRC
-	modem_pin_write(ctx, MDM_PWR_SRC, 0);
+    if (modem_power_src.port) {
+        gpio_pin_set_dt(&modem_power_src, 0);
+    }
 #endif
 }
 
@@ -63,19 +47,23 @@ void disable_power_source(struct modem_context *ctx)
  *
  * @retval None.
  */
-void enable_power_source(struct modem_context *ctx)
+static inline void enable_power_source(void)
 {
 #if HAS_PWR_SRC
-	modem_pin_write(ctx, MDM_PWR_SRC, 1);
+    if (modem_power_src.port) {
+        gpio_pin_set_dt(&modem_power_src, 1);
+    }
 #endif
 }
 
 #if HAS_PWR_KEY
-static void press_power_key(struct modem_context *ctx, const k_timeout_t dur)
+static void press_power_key(k_timeout_t dur)
 {
-	modem_pin_write(ctx, MDM_PWR_KEY, 1);
-	k_sleep(dur);
-	modem_pin_write(ctx, MDM_PWR_KEY, 0);
+    if (modem_power_key.port) {
+        gpio_pin_set_dt(&modem_power_key, 1);
+        k_sleep(dur);
+        gpio_pin_set_dt(&modem_power_key, 0);
+    }
 }
 #endif
 
@@ -86,10 +74,10 @@ static void press_power_key(struct modem_context *ctx, const k_timeout_t dur)
  *
  * @retval None.
  */
-void power_on_ops(struct modem_context *ctx)
+static inline void power_on_ops(void)
 {
 #if DT_INST_NODE_HAS_PROP(0, power_key_on_ms)
-	press_power_key(ctx, K_MSEC(DT_INST_PROP(0, power_key_on_ms)));
+    press_power_key(K_MSEC(DT_INST_PROP(0, power_key_on_ms)));
 #endif
 }
 
@@ -100,10 +88,32 @@ void power_on_ops(struct modem_context *ctx)
  *
  * @retval None.
  */
-void power_off_ops(struct modem_context *ctx)
+static inline void power_off_ops(void)
 {
 #if DT_INST_NODE_HAS_PROP(0, power_key_off_ms)
-	press_power_key(ctx, K_MSEC(DT_INST_PROP(0, power_key_off_ms)));
+    press_power_key(K_MSEC(DT_INST_PROP(0, power_key_off_ms)));
+#endif
+}
+
+/**
+ * @brief  Perform a soft reboot of the modem.
+ *
+ * This function powers the modem off using the power key, waits,
+ * and then powers it back on.
+ *
+ * @retval None.
+ */
+static inline void modem_soft_reboot(void)
+{
+#if HAS_PWR_KEY
+    LOG_WRN("Performing modem soft reboot...");
+    power_off_ops();
+    /* Wait for modem to power down completely */
+    k_sleep(K_SECONDS(5));
+    power_on_ops();
+    LOG_INF("Modem soft reboot sequence complete.");
+#else
+    LOG_WRN("Soft reboot not supported, no power key defined.");
 #endif
 }
 

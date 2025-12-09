@@ -22,6 +22,7 @@ LOG_MODULE_REGISTER(modem_gsm, CONFIG_MODEM_LOG_LEVEL);
 #include <drivers/modem/quectel.h>
 #include <drivers/uart.h>
 #include <drivers/console/uart_mux.h>
+#include <shell/shell.h>
 
 #include "gsm_ppp.h"
 #include "modem_context.h"
@@ -993,24 +994,26 @@ static void gsm_finalize_connection(struct k_work *work)
 		if (ret < 0) {
 			LOG_ERR("%s returned %d, %s", "AT", ret, "retrying...");
 
-			if (at_retry < 3) {
-				(void)gsm_work_reschedule(&gsm->gsm_configure_work, K_SECONDS(1));
+			at_retry++;
+
+			if (at_retry <= 2) {
+				/* Simple retry with short delay */
+				(void)gsm_work_reschedule(&gsm->gsm_configure_work, K_SECONDS(2));
 			} else if (at_retry == 3) {
-				disable_power_source(&gsm->context);
-				gsm->state = GSM_PPP_PWR_SRC_OFF;
-				(void)gsm_work_reschedule(&gsm->gsm_configure_work, K_SECONDS(10));
+				/* First soft reboot with 1-minute backoff */
+				modem_soft_reboot();
+				LOG_INF("Waiting 1 minute for modem to recover...");
+				(void)gsm_work_reschedule(&gsm->gsm_configure_work, K_MINUTES(1));
 			} else if (at_retry == 4) {
-				disable_power_source(&gsm->context);
-				gsm->state = GSM_PPP_PWR_SRC_OFF;
-				(void)gsm_work_reschedule(&gsm->gsm_configure_work, K_SECONDS(20));
-			} else if (at_retry == 5) {
-				disable_power_source(&gsm->context);
-				gsm->state = GSM_PPP_PWR_SRC_OFF;
-				(void)gsm_work_reschedule(&gsm->gsm_configure_work, K_SECONDS(30));
+				/* Second soft reboot with 5-minute backoff */
+				modem_soft_reboot();
+				LOG_INF("Waiting 5 minutes for modem to recover...");
+				(void)gsm_work_reschedule(&gsm->gsm_configure_work, K_MINUTES(5));
 			} else {
+				/* All retries failed, trigger a system reboot */
+				LOG_ERR("All modem recovery attempts failed. Triggering system reboot.");
 				gmoc_reboot_cold(GMOC_GSM_AT_FAILED);
 			}
-			at_retry++;
 			goto unlock;
 		} else {
 			at_retry = 0;
@@ -1780,7 +1783,7 @@ static void gsm_configure(struct k_work *work)
 			gsm->modem_on_cb(gsm->dev, gsm->user_data);
 			gsm->state = GSM_PPP_WAIT_AT;
 		} else {
-			disable_power_source(&gsm->context);
+			disable_power_source();
 			gsm->state = GSM_PPP_PWR_SRC_OFF;
 			/* Arbitrary delay to drain the power */
 			(void)gsm_work_reschedule(&gsm->gsm_configure_work, K_SECONDS(2));
@@ -1790,7 +1793,7 @@ static void gsm_configure(struct k_work *work)
 
 pwr_src_off:
 	if (gsm->state == GSM_PPP_PWR_SRC_OFF) {
-		enable_power_source(&gsm->context);
+		enable_power_source();
 		gsm->state = GSM_PPP_PWR_SRC_ON;
 		/* Arbitrary delay for the power to stabilize */
 		(void)gsm_work_reschedule(&gsm->gsm_configure_work, K_SECONDS(2));
@@ -1799,7 +1802,7 @@ pwr_src_off:
 
 pwr_src_on:
 	if (gsm->state == GSM_PPP_PWR_SRC_ON) {
-		power_on_ops(&gsm->context);
+		power_on_ops();
 		gsm->state = GSM_PPP_WAIT_AT;
 		/* The unsol 'RDY' handler will schedule the following part */
 		goto unlock;
@@ -1974,8 +1977,8 @@ void gsm_ppp_stop(const struct device *dev)
 	if (gsm->modem_off_cb) {
 		gsm->modem_off_cb(gsm->dev, gsm->user_data);
 	} else {
-		power_off_ops(&gsm->context);
-		disable_power_source(&gsm->context);
+		power_off_ops();
+		disable_power_source();
 	}
 
 	gsm->gnss_state = PPP_GNSS_OFF;
@@ -2059,9 +2062,27 @@ static int gsm_init(const struct device *dev)
 	gsm->gsm_data.rx_rb_buf = &gsm->gsm_rx_rb_buf[0];
 	gsm->gsm_data.rx_rb_buf_len = sizeof(gsm->gsm_rx_rb_buf);
 
-#if HAS_PWR_SRC || HAS_PWR_KEY
-	gsm->context.pins = modem_pins;
-	gsm->context.pins_len = ARRAY_SIZE(modem_pins);
+#if HAS_PWR_SRC
+	if (!device_is_ready(modem_power_src.port)) {
+		LOG_ERR("Power source GPIO device not ready");
+		return -ENODEV;
+	}
+	r = gpio_pin_configure_dt(&modem_power_src, GPIO_OUTPUT_INACTIVE);
+	if (r < 0) {
+		LOG_ERR("Failed to configure power source GPIO: %d", r);
+		return r;
+	}
+#endif
+#if HAS_PWR_KEY
+	if (!device_is_ready(modem_power_key.port)) {
+		LOG_ERR("Power key GPIO device not ready");
+		return -ENODEV;
+	}
+	r = gpio_pin_configure_dt(&modem_power_key, GPIO_OUTPUT_INACTIVE);
+	if (r < 0) {
+		LOG_ERR("Failed to configure power key GPIO: %d", r);
+		return r;
+	}
 #endif
 
 	r = modem_iface_uart_init(&gsm->context.iface, &gsm->gsm_data,
@@ -2121,3 +2142,36 @@ static int gsm_init(const struct device *dev)
 
 DEVICE_DT_DEFINE(DT_INST(0, zephyr_gsm_ppp), gsm_init, NULL, &gsm, NULL, POST_KERNEL,
 		 CONFIG_MODEM_GSM_INIT_PRIORITY, NULL);
+
+static int cmd_gsm_power(const struct shell *shell, size_t argc, char **argv)
+{
+	const struct device *dev = DEVICE_DT_GET(DT_INST(0, zephyr_gsm_ppp));
+
+	if (argc < 2) {
+		shell_error(shell, "Missing argument. Use 'on', 'off', or 'reboot'.");
+		return -ENOEXEC;
+	}
+
+	if (strcmp(argv[1], "on") == 0) {
+		shell_print(shell, "Executing GSM power ON sequence...");
+		gsm_ppp_start(dev);
+	} else if (strcmp(argv[1], "off") == 0) {
+		shell_print(shell, "Executing GSM power OFF sequence...");
+		gsm_ppp_stop(dev);
+	} else if (strcmp(argv[1], "reboot") == 0) {
+		shell_print(shell, "Executing GSM soft reboot...");
+		modem_soft_reboot();
+	} else {
+		shell_error(shell, "Invalid argument: %s. Use 'on', 'off', or 'reboot'.", argv[1]);
+		return -ENOEXEC;
+	}
+
+	return 0;
+}
+
+SHELL_STATIC_SUBCMD_SET_CREATE(sub_gsm,
+			       SHELL_CMD_ARG(power, NULL, "Control GSM power (on|off|reboot)",
+					     cmd_gsm_power, 2, 0),
+			       SHELL_SUBCMD_SET_END);
+
+SHELL_CMD_REGISTER(gsm, &sub_gsm, "GSM modem commands", NULL);
