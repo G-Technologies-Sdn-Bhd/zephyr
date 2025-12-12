@@ -2169,9 +2169,83 @@ static int cmd_gsm_power(const struct shell *shell, size_t argc, char **argv)
 	return 0;
 }
 
+/* Shell context for AT command responses */
+static const struct shell *gsm_at_shell;
+
+/* Handler to print any response line from the modem */
+MODEM_CMD_DEFINE(gsm_cmd_at_print)
+{
+	if (gsm_at_shell && len > 0) {
+		/* Print the response data to the shell */
+		shell_print(gsm_at_shell, "%.*s", len, argv[0]);
+	}
+	return 0;
+}
+
+/* Custom response commands for shell AT commands */
+static const struct modem_cmd shell_response_cmds[] = {
+	MODEM_CMD("OK", gsm_cmd_ok, 0U, ""),
+	MODEM_CMD("ERROR", gsm_cmd_error, 0U, ""),
+	MODEM_CMD("+CME ERROR: ", gsm_cmd_exterror, 1U, ""),
+	MODEM_CMD("CONNECT", gsm_cmd_ok, 0U, ""),
+	/* Catch-all handler for any other response line */
+	MODEM_CMD("", gsm_cmd_at_print, 1U, ""),
+};
+
+static int cmd_gsm_at(const struct shell *shell, size_t argc, char **argv)
+{
+	const struct device *dev = DEVICE_DT_GET(DT_INST(0, zephyr_gsm_ppp));
+	struct gsm_modem *gsm = dev->data;
+	char cmd[128];
+	int ret;
+
+	if (argc < 2) {
+		shell_error(shell, "Missing AT command argument.");
+		return -ENOEXEC;
+	}
+
+	/* Combine all arguments into a single command string */
+	size_t offset = 0;
+	for (size_t i = 1; i < argc && offset < sizeof(cmd) - 1; i++) {
+		int written = snprintf(cmd + offset, sizeof(cmd) - offset, "%s%s",
+				       (i > 1) ? " " : "", argv[i]);
+		if (written < 0 || written >= (int)(sizeof(cmd) - offset)) {
+			shell_error(shell, "AT command too long");
+			return -ENOEXEC;
+		}
+		offset += written;
+	}
+
+	shell_print(shell, "Sending: %s", cmd);
+
+	gsm_ppp_lock(gsm);
+
+	/* Store shell context for response printing */
+	gsm_at_shell = shell;
+
+	/* Send the AT command */
+	ret = modem_cmd_send(&gsm->context.iface, &gsm->context.cmd_handler,
+			     &shell_response_cmds[0], ARRAY_SIZE(shell_response_cmds), cmd,
+			     &gsm->sem_response, K_SECONDS(10));
+
+	/* Clear shell context */
+	gsm_at_shell = NULL;
+
+	gsm_ppp_unlock(gsm);
+
+	if (ret < 0) {
+		shell_error(shell, "AT command failed: %d", ret);
+		return ret;
+	}
+
+	return 0;
+}
+
 SHELL_STATIC_SUBCMD_SET_CREATE(sub_gsm,
 			       SHELL_CMD_ARG(power, NULL, "Control GSM power (on|off|reboot)",
 					     cmd_gsm_power, 2, 0),
+			       SHELL_CMD_ARG(at, NULL, "Send AT command to modem", cmd_gsm_at, 2,
+					     SHELL_OPT_ARG_RAW),
 			       SHELL_SUBCMD_SET_END);
 
 SHELL_CMD_REGISTER(gsm, &sub_gsm, "GSM modem commands", NULL);
