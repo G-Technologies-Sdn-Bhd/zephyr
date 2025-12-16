@@ -2177,6 +2177,7 @@ static int cmd_gsm_power(const struct shell *shell, size_t argc, char **argv)
 }
 
 void gsm_ppp_reboot(void)
+{
 	LOG_WRN("%s:%d", __FUNCTION__, __LINE__);
 	const struct device *dev = DEVICE_DT_GET(DT_INST(0, zephyr_gsm_ppp));
 	struct gsm_modem *gsm = dev->data;
@@ -2223,6 +2224,7 @@ void gsm_ppp_reboot(void)
 	LOG_WRN("Starting GSM PPP");
 	gsm_ppp_start(dev);
 }
+
 /* Shell context for AT command responses */
 static const struct shell *gsm_at_shell;
 
