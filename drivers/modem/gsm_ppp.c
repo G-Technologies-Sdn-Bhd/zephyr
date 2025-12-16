@@ -1005,7 +1005,6 @@ static void gsm_finalize_connection(struct k_work *work)
 				gsm_ppp_reboot();
 				LOG_INF("Waiting 1 minute for modem to recover...");
 				(void)gsm_work_reschedule(&gsm->gsm_configure_work, K_MINUTES(1));
-			} else if (at_retry == 4) {
 			} else if (at_retry == 7) {
 				/* Second soft reboot with 5-minute backoff */
 				// modem_soft_reboot();
