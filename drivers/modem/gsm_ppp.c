@@ -2160,7 +2160,12 @@ static int cmd_gsm_power(const struct shell *shell, size_t argc, char **argv)
 		gsm_ppp_stop(dev);
 	} else if (strcmp(argv[1], "reboot") == 0) {
 		shell_print(shell, "Executing GSM soft reboot...");
-		modem_soft_reboot();
+		LOG_WRN("gsm ppp Stop");
+		gsm_ppp_stop(dev);
+		LOG_WRN("Waiting 5 seconds before restarting...");
+		k_sleep(K_SECONDS(5));
+		LOG_WRN("gsm ppp Start");
+		gsm_ppp_start(dev);
 	} else {
 		shell_error(shell, "Invalid argument: %s. Use 'on', 'off', or 'reboot'.", argv[1]);
 		return -ENOEXEC;
