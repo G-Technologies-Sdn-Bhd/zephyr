@@ -1006,10 +1006,13 @@ static void gsm_finalize_connection(struct k_work *work)
 				LOG_INF("Waiting 1 minute for modem to recover...");
 				(void)gsm_work_reschedule(&gsm->gsm_configure_work, K_MINUTES(1));
 			} else if (at_retry == 4) {
+			} else if (at_retry == 7) {
 				/* Second soft reboot with 5-minute backoff */
 				// modem_soft_reboot();
+				gsm_ppp_reboot();
 				LOG_INF("Waiting 5 minutes for modem to recover...");
 				(void)gsm_work_reschedule(&gsm->gsm_configure_work, K_MINUTES(5));
+			} else if (at_retry >= 10) {
 				/* All retries failed, trigger a system reboot */
 				LOG_ERR("All modem recovery attempts failed. Triggering system reboot.");
 				gmoc_reboot_cold(GMOC_GSM_AT_FAILED);
