@@ -1001,15 +1001,15 @@ static void gsm_finalize_connection(struct k_work *work)
 				(void)gsm_work_reschedule(&gsm->gsm_configure_work, K_SECONDS(2));
 			} else if (at_retry == 3) {
 				/* First soft reboot with 1-minute backoff */
-				modem_soft_reboot();
+				// modem_soft_reboot();
+				gsm_ppp_reboot();
 				LOG_INF("Waiting 1 minute for modem to recover...");
 				(void)gsm_work_reschedule(&gsm->gsm_configure_work, K_MINUTES(1));
 			} else if (at_retry == 4) {
 				/* Second soft reboot with 5-minute backoff */
-				modem_soft_reboot();
+				// modem_soft_reboot();
 				LOG_INF("Waiting 5 minutes for modem to recover...");
 				(void)gsm_work_reschedule(&gsm->gsm_configure_work, K_MINUTES(5));
-			} else {
 				/* All retries failed, trigger a system reboot */
 				LOG_ERR("All modem recovery attempts failed. Triggering system reboot.");
 				gmoc_reboot_cold(GMOC_GSM_AT_FAILED);
@@ -2174,6 +2174,53 @@ static int cmd_gsm_power(const struct shell *shell, size_t argc, char **argv)
 	return 0;
 }
 
+void gsm_ppp_reboot(void)
+	LOG_WRN("%s:%d", __FUNCTION__, __LINE__);
+	const struct device *dev = DEVICE_DT_GET(DT_INST(0, zephyr_gsm_ppp));
+	struct gsm_modem *gsm = dev->data;
+	struct net_if *iface = gsm->iface;
+
+	LOG_WRN("Stopping GSM PPP");
+
+	/* Cancel all pending work without draining (to avoid deadlock) */
+	gsm->workq_plug = true;
+	(void)k_work_cancel_delayable(&gsm->gsm_configure_work);
+	if (IS_ENABLED(CONFIG_GSM_MUX)) {
+		(void)k_work_cancel_delayable(&gsm->rssi_work_handle);
+	}
+	(void)k_work_cancel_delayable(&gsm->gnss_configure_work);
+
+	gsm_ppp_lock(gsm);
+
+	net_if_l2(iface)->enable(iface, false);
+
+	if (IS_ENABLED(CONFIG_GSM_MUX)) {
+		if (gsm->ppp_dev) {
+			uart_mux_disable(gsm->ppp_dev);
+		}
+	}
+
+	if (gsm->modem_off_cb) {
+		gsm->modem_off_cb(gsm->dev, gsm->user_data);
+	} else {
+		power_off_ops();
+		disable_power_source();
+	}
+
+	gsm->gnss_state = PPP_GNSS_OFF;
+	gsm->state = GSM_PPP_STOP;
+	gsm->net_state = GSM_NOT_REGISTERED;
+	gsm->retries = 0;
+	gsm->gnss_qlbs_enabled = false;
+
+	gsm_ppp_unlock(gsm);
+
+	LOG_WRN("Waiting 5 seconds before restarting...");
+	k_sleep(K_SECONDS(5));
+
+	LOG_WRN("Starting GSM PPP");
+	gsm_ppp_start(dev);
+}
 /* Shell context for AT command responses */
 static const struct shell *gsm_at_shell;
 
